@@ -1,0 +1,15 @@
+# 由 XcodeGen 生成，不入库
+*.xcodeproj/
+App/Info.plist
+App/*.entitlements
+Widget/Info.plist
+Widget/*.entitlements
+
+# Xcode
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+
+# macOS
+.DS_Store

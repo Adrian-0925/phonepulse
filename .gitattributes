@@ -1,0 +1,2 @@
+# 项目在 macOS 上编译，统一使用 LF 换行
+* text=auto eol=lf
