@@ -1,5 +1,7 @@
 # PhonePulse（暂定名）
 
+![PhonePulse：iPhone 的网速、充电功率、CPU 一眼看清，切到其他 App 网速还能悬浮显示](docs/cover.png)
+
 iPhone 设备状态监测 App：实时网速、充电功率（估算）、CPU、内存、存储、温度状态，一屏看完。
 
 ## 先说清楚：iOS 能做什么、不能做什么
@@ -51,6 +53,7 @@ Shared/                  App 与小组件共用：数据模型、App Group 存�
 Widget/                  桌面 / 锁屏小组件
 Tests/                   Core 和 Shared 的单元测试
 .github/workflows/       云端 macOS 编译 + 测试
+docs/                    封面图：cover.html 是源文件，cover.png 由它导出
 ```
 
 数据流：`各 Monitor` → `MetricsEngine`（每秒采样，保留 60 秒曲线）→ 界面；同时每 30 秒和退到后台时把快照写进 App Group → 小组件读取。
@@ -137,7 +140,7 @@ open PhonePulse.xcodeproj
 - 免费账号不支持 App Group，小组件可能读不到数据。这不影响悬浮窗、网速、CPU、电池等 P0/P1 验证。
 - 如果提示 bundle ID 不可用，在 Sideloadly 高级选项里勾选修改 bundle ID。
 
-**改名**：全局替换 `PhonePulse`、`io.github.adrian-0925.phonepulse`、`group.io.github.adrian-0925.phonepulse`（`project.yml` 和 `Shared/SharedStore.swift`）。包名在第一次上传 App Store 之前都可以改，上传后就固定了。
+**改名**：全局替换 `PhonePulse`、`io.github.adrian-0925.phonepulse`、`group.io.github.adrian-0925.phonepulse`（`project.yml` 和 `Shared/SharedStore.swift`）。包名在第一次上传 App Store 之前都可以改，上传后就固定了。封面图 `docs/cover.html` 里的名字也要改，再按文件开头注释里的命令重新导出 `docs/cover.png`。
 
 ## 上架注意事项
 

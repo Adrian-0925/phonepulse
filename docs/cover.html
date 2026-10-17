@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>PhonePulse 封面</title>
+<!--
+  README 顶部封面图 docs/cover.png 的源文件。画布 1280×640，也是 GitHub 社交预览图的推荐尺寸。
+  改名或改文案后，在项目根目录用 PowerShell 重新导出（2 倍分辨率）：
+  & "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe" --headless=new --disable-gpu --hide-scrollbars --user-data-dir="$env:TEMP\edge-cover" --force-device-scale-factor=2 --window-size=1280,640 --screenshot="$PWD\docs\cover.png" "file:///$("$PWD" -replace '\\','/' -replace ' ','%20')/docs/cover.html"
+  截图里的数值是示意数据，界面按 App/Views/DashboardView.swift 和 SpeedFrameRenderer.swift 的样式还原。
+-->
+<style>
+  :root {
+    --bg: #070A14;
+    --text: #F4F6FB;
+    --muted: #98A1B5;
+    --blue: #0A84FF;
+    --orange: #FF9F0A;
+    --purple: #BF5AF2;
+    --green: #30D158;
+    --teal: #40C8E0;
+    --indigo: #5E5CE6;
+    --gray: #8E8E93;
+    --pip-down: #59BFFF;
+    --pip-up: #FF9E33;
+    --card: #1C1C1E;
+    --track: #3A3A3C;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 640px; overflow: hidden; }
+  body {
+    position: relative;
+    background:
+      radial-gradient(520px 420px at 940px 360px, rgba(94, 92, 230, .30), transparent 70%),
+      radial-gradient(420px 320px at 1140px 120px, rgba(10, 132, 255, .18), transparent 70%),
+      radial-gradient(640px 420px at 0 0, rgba(10, 132, 255, .10), transparent 70%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+  }
+  svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* 左侧文案 */
+  .copy { position: absolute; left: 72px; top: 64px; width: 540px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand > svg { width: 44px; height: 44px; }
+  .brand .name { font-size: 25px; font-weight: 600; }
+  .brand .tag {
+    margin-left: 4px; padding: 3px 11px; border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .16); font-size: 13px; color: var(--muted);
+  }
+  /* palt 收紧标点的全角留白，大字号下"、"不再空出一大块 */
+  h1 { margin-top: 34px; font-size: 58px; line-height: 1.16; font-weight: 800; letter-spacing: .01em; font-feature-settings: "palt"; }
+  h1 .accent {
+    background: linear-gradient(90deg, #59BFFF, #A08CFF);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .lead { margin-top: 16px; font-size: 19px; line-height: 1.6; color: var(--muted); }
+  .features { list-style: none; margin-top: 30px; display: grid; gap: 14px; }
+  .features li { display: flex; align-items: center; gap: 14px; }
+  .features .ic {
+    flex: none; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
+    color: var(--c); background: color-mix(in srgb, var(--c) 17%, transparent);
+  }
+  .features .ic svg { width: 22px; height: 22px; }
+  .features b { display: block; font-size: 17px; font-weight: 600; }
+  .features .d { display: block; margin-top: 1px; font-size: 14px; color: var(--muted); }
+
+  /* 右侧手机 */
+  .shot { position: absolute; width: 271px; }
+  .step {
+    position: absolute; left: -20px; right: -20px; top: -38px;
+    display: flex; justify-content: center; align-items: center; gap: 8px;
+    font-size: 15px; font-weight: 600; white-space: nowrap;
+  }
+  .step i {
+    font-style: normal; width: 22px; height: 22px; border-radius: 50%;
+    display: grid; place-items: center; background: var(--c); font-size: 13px;
+  }
+  .step span { color: var(--muted); font-weight: 400; }
+  .phone {
+    width: 417px; height: 876px; padding: 12px; border-radius: 68px;
+    background: linear-gradient(150deg, #50545e 0%, #262930 35%, #121418 100%);
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .16), 0 50px 90px rgba(0, 0, 0, .55);
+    transform: scale(.65); transform-origin: 0 0;
+  }
+  .screen {
+    position: relative; width: 393px; height: 852px; border-radius: 56px; overflow: hidden;
+    background: #000; color: #fff;
+  }
+  .island {
+    position: absolute; top: 11px; left: 50%; margin-left: -63px; z-index: 5;
+    width: 126px; height: 37px; border-radius: 20px; background: #000;
+  }
+  .status {
+    height: 54px; padding: 6px 30px 0 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 17px; font-weight: 600;
+  }
+  .status .icons { display: flex; align-items: center; gap: 6px; fill: currentColor; }
+
+  /* 仪表盘（深色模式） */
+  .title { padding: 6px 20px 12px; font-size: 34px; font-weight: 700; }
+  .cards { padding: 0 16px; display: grid; gap: 12px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .card { background: var(--card); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .lbl { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 500; color: var(--c); }
+  .lbl svg { width: 18px; height: 18px; }
+  .val { font-size: 22px; font-weight: 600; }
+  .cap { font-size: 12px; color: var(--gray); }
+  .bar { height: 4px; border-radius: 2px; background: var(--track); }
+  .bar div { height: 100%; border-radius: 2px; background: var(--c); }
+  .speeds { display: flex; gap: 32px; }
+  .speeds .k { display: flex; align-items: center; gap: 3px; font-size: 12px; color: var(--c); }
+  .speeds .k svg { width: 12px; height: 12px; stroke-width: 2.6; }
+  .row { display: flex; justify-content: space-between; font-size: 15px; }
+  .row span:last-child { color: var(--gray); }
+
+  /* 其他 App（浅色视频 App） */
+  .screen.other { background: #fff; color: #000; }
+  .skel { height: 12px; border-radius: 6px; background: #E9E9EE; }
+  .meta { padding: 14px 16px; display: grid; gap: 8px; }
+  .channel { padding: 2px 16px 16px; display: flex; align-items: center; gap: 10px; }
+  .avatar { flex: none; width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #FF7A59, #FFB36B); }
+  .follow { flex: none; width: 64px; height: 30px; border-radius: 15px; background: #E9E9EE; }
+  .list { padding: 0 16px; display: grid; gap: 14px; }
+  .item { display: flex; gap: 12px; }
+  .thumb { flex: none; width: 150px; height: 84px; border-radius: 10px; }
+  .lines { flex: 1; padding-top: 4px; display: grid; gap: 8px; align-content: start; }
+
+  /* 画中画悬浮窗，比例和配色同 SpeedFrameRenderer（3:1、黑底、蓝下行、橙上行） */
+  .pip {
+    position: absolute; right: 12px; top: 492px; width: 260px; height: 86.67px;
+    padding: 9px 14px; border-radius: 14px; background: #000;
+    font-size: 27px; font-weight: 600; line-height: 1.25;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .18), 0 0 0 7px rgba(89, 191, 255, .16),
+      0 18px 40px rgba(0, 0, 0, .45), 0 0 70px rgba(89, 191, 255, .35);
+  }
+</style>
+</head>
+<body>
+
+<section class="copy">
+  <div class="brand">
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <defs>
+        <linearGradient id="logo" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#2AA0FF"/>
+          <stop offset="1" stop-color="#5E5CE6"/>
+        </linearGradient>
+      </defs>
+      <rect width="48" height="48" rx="11" fill="url(#logo)"/>
+      <path d="M8 26h8l3.5-9 6 18 4-12 2.5 3H40" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="name">PhonePulse</span>
+    <span class="tag">iPhone 设备状态监测</span>
+  </div>
+
+  <h1>网速、充电、CPU<br><span class="accent">一眼看清</span></h1>
+  <p class="lead">把 iPhone 不直接显示的实时数据，集中到一屏。</p>
+
+  <ul class="features">
+    <li>
+      <span class="ic" style="--c: var(--indigo)"><svg class="i" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><rect x="12" y="11.5" width="7" height="5.5" rx="1" fill="currentColor" stroke="none"/></svg></span>
+      <div><b>悬浮网速窗</b><span class="d">切到其他 App，网速照样浮在屏幕上</span></div>
+    </li>
+    <li>
+      <span class="ic" style="--c: var(--blue)"><svg class="i" viewBox="0 0 24 24"><path d="M7 20V4M3 8l4-4 4 4M17 4v16M13 16l4 4 4-4"/></svg></span>
+      <div><b>实时网速</b><span class="d">上传、下载每秒刷新，附曲线和测速</span></div>
+    </li>
+    <li>
+      <span class="ic" style="--c: var(--green)"><svg class="i" viewBox="0 0 24 24"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12z" fill="currentColor" stroke="none"/></svg></span>
+      <div><b>充电功率</b><span class="d">边充边看充进去多少瓦（估算值）</span></div>
+    </li>
+    <li>
+      <span class="ic" style="--c: var(--purple)"><svg class="i" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx=".5"/><path d="M9.5 2.5v3M14.5 2.5v3M9.5 18.5v3M14.5 18.5v3M2.5 9.5h3M2.5 14.5h3M18.5 9.5h3M18.5 14.5h3"/></svg></span>
+      <div><b>CPU · 内存 · 存储 · 温度</b><span class="d">还有桌面和锁屏小组件</span></div>
+    </li>
+  </ul>
+</section>
+
+<!-- ① 仪表盘 -->
+<div class="shot" style="left: 662px; top: 140px">
+  <div class="step" style="--c: var(--blue)"><i>1</i>打开 App<span>· 所有数据一屏看完</span></div>
+  <div class="phone"><div class="screen">
+    <div class="island"></div>
+    <div class="status">
+      <span>9:41</span>
+      <span class="icons">
+        <svg width="18" height="12" viewBox="0 0 18 12"><rect y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" width="3" height="12" rx="1"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 11.6 5.7 9.3a3.3 3.3 0 0 1 4.6 0z"/><path d="M3.5 7.1a6.4 6.4 0 0 1 9 0l-1.4 1.4a4.4 4.4 0 0 0-6.2 0z"/><path d="M1.3 4.9a9.5 9.5 0 0 1 13.4 0l-1.4 1.4a7.5 7.5 0 0 0-10.6 0z"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" stroke="rgba(255,255,255,.4)"/><rect x="2" y="2" width="15.2" height="9" rx="2" fill="#30D158"/><path d="M25 4.5v4a2 2 0 0 0 0-4z" fill="rgba(255,255,255,.4)"/></svg>
+      </span>
+    </div>
+    <div class="title">设备状态</div>
+    <div class="cards">
+      <div class="card" style="--c: var(--blue)">
+        <div class="lbl"><svg class="i" viewBox="0 0 24 24"><path d="M7 20V4M3 8l4-4 4 4M17 4v16M13 16l4 4 4-4"/></svg>网络 · Wi-Fi</div>
+        <div class="speeds">
+          <div>
+            <div class="k" style="--c: var(--blue)"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v16M5 13l7 7 7-7"/></svg>下载</div>
+            <div class="val">12.4 MB/s</div>
+          </div>
+          <div>
+            <div class="k" style="--c: var(--orange)"><svg class="i" viewBox="0 0 24 24"><path d="M12 20V4M5 11l7-7 7 7"/></svg>上传</div>
+            <div class="val">860 KB/s</div>
+          </div>
+        </div>
+        <svg id="spark-net" width="329" height="60" viewBox="0 0 329 60"></svg>
+        <div class="cap">本次统计&nbsp; Wi-Fi 1.28 GB&nbsp; ·&nbsp; 蜂窝 86 MB</div>
+      </div>
+      <div class="grid2">
+        <div class="card" style="--c: var(--purple)">
+          <div class="lbl"><svg class="i" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx=".5"/><path d="M9.5 2.5v3M14.5 2.5v3M9.5 18.5v3M14.5 18.5v3M2.5 9.5h3M2.5 14.5h3M18.5 9.5h3M18.5 14.5h3"/></svg>CPU</div>
+          <div class="val">23%</div>
+          <svg id="spark-cpu" width="142" height="32" viewBox="0 0 142 32"></svg>
+          <div class="cap">6 核 · 整机</div>
+        </div>
+        <div class="card" style="--c: var(--green)">
+          <div class="lbl"><svg class="i" viewBox="0 0 24 24"><rect x="2.5" y="6.5" width="19" height="10" rx="1.5"/><path d="M6.5 16.5v3M10.5 16.5v3M14.5 16.5v3M18.5 16.5v3M7 10v3M11 10v3M15 10v3"/></svg>内存</div>
+          <div class="val">61%</div>
+          <div class="bar"><div style="width: 61%"></div></div>
+          <div class="cap">4.9 GB / 8 GB</div>
+        </div>
+        <div class="card" style="--c: var(--green)">
+          <div class="lbl"><svg class="i" viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M21.5 10.5v3"/><path d="M11.8 8.3 8.3 12.6h3.2l-.7 3.1 3.6-4.4h-3.2z" fill="currentColor" stroke="none"/></svg>电池</div>
+          <div class="val">76%</div>
+          <div style="font-size: 15px">充电中</div>
+          <div class="cap">充入 ≈ 18.6 W（估算）</div>
+        </div>
+        <div class="card" style="--c: var(--teal)">
+          <div class="lbl"><svg class="i" viewBox="0 0 24 24"><rect x="2.5" y="6.5" width="19" height="11" rx="2.5"/><path d="M6 12h5"/><circle cx="17" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>存储</div>
+          <div class="val">186 GB</div>
+          <div class="bar"><div style="width: 27%"></div></div>
+          <div class="cap">可用 / 共 256 GB</div>
+        </div>
+      </div>
+      <div class="card" style="--c: var(--gray)">
+        <div class="lbl"><svg class="i" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 5h3"/></svg>设备</div>
+        <div class="row"><span>机型</span><span>iPhone 15 Pro</span></div>
+        <div class="row"><span>温度状态</span><span>正常</span></div>
+        <div class="row"><span>本 App 内存</span><span>38 MB</span></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ② 在其他 App 上悬浮 -->
+<div class="shot" style="left: 958px; top: 100px">
+  <div class="step" style="--c: var(--indigo)"><i>2</i>切到其他 App<span>· 网速继续悬浮</span></div>
+  <div class="phone"><div class="screen other">
+    <div class="island"></div>
+    <div class="status">
+      <span>9:41</span>
+      <span class="icons">
+        <svg width="18" height="12" viewBox="0 0 18 12"><rect y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" width="3" height="12" rx="1"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 11.6 5.7 9.3a3.3 3.3 0 0 1 4.6 0z"/><path d="M3.5 7.1a6.4 6.4 0 0 1 9 0l-1.4 1.4a4.4 4.4 0 0 0-6.2 0z"/><path d="M1.3 4.9a9.5 9.5 0 0 1 13.4 0l-1.4 1.4a7.5 7.5 0 0 0-10.6 0z"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" stroke="rgba(0,0,0,.35)"/><rect x="2" y="2" width="14" height="9" rx="2"/><path d="M25 4.5v4a2 2 0 0 0 0-4z" fill="rgba(0,0,0,.35)"/></svg>
+      </span>
+    </div>
+    <svg width="393" height="221" viewBox="0 0 393 221" style="display: block">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#27346E"/>
+          <stop offset=".6" stop-color="#B25C7A"/>
+          <stop offset="1" stop-color="#F2A25C"/>
+        </linearGradient>
+      </defs>
+      <rect width="393" height="221" fill="url(#sky)"/>
+      <circle cx="272" cy="148" r="34" fill="#FFD9A0" opacity=".9"/>
+      <path d="M0 160 60 118l50 32 60-56 60 46 60-30 103 56v76H0z" fill="#4A2F5E"/>
+      <path d="M0 190 80 150l70 35 70-40 80 40 93-25v61H0z" fill="#24183A"/>
+      <rect x="14" y="204" width="365" height="4" rx="2" fill="rgba(255,255,255,.3)"/>
+      <rect x="14" y="204" width="136" height="4" rx="2" fill="#fff"/>
+      <circle cx="150" cy="206" r="6" fill="#fff"/>
+    </svg>
+    <div class="meta">
+      <div class="skel" style="width: 84%; height: 15px; background: #DCDCE2"></div>
+      <div class="skel" style="width: 46%; height: 10px"></div>
+    </div>
+    <div class="channel">
+      <div class="avatar"></div>
+      <div style="flex: 1; display: grid; gap: 6px">
+        <div class="skel" style="width: 44%"></div>
+        <div class="skel" style="width: 28%; height: 9px"></div>
+      </div>
+      <div class="follow"></div>
+    </div>
+    <div class="list">
+      <div class="item">
+        <div class="thumb" style="background: linear-gradient(135deg, #2E3A87, #7B4EA8)"></div>
+        <div class="lines"><div class="skel" style="width: 96%"></div><div class="skel" style="width: 70%"></div><div class="skel" style="width: 40%; height: 9px"></div></div>
+      </div>
+      <div class="item">
+        <div class="thumb" style="background: linear-gradient(135deg, #0F5E5A, #3BB2A0)"></div>
+        <div class="lines"><div class="skel" style="width: 90%"></div><div class="skel" style="width: 62%"></div><div class="skel" style="width: 36%; height: 9px"></div></div>
+      </div>
+      <div class="item">
+        <div class="thumb" style="background: linear-gradient(135deg, #8A3B2E, #E0904C)"></div>
+        <div class="lines"><div class="skel" style="width: 94%"></div><div class="skel" style="width: 58%"></div><div class="skel" style="width: 42%; height: 9px"></div></div>
+      </div>
+      <div class="item">
+        <div class="thumb" style="background: linear-gradient(135deg, #3A3A55, #6B6B8F)"></div>
+        <div class="lines"><div class="skel" style="width: 88%"></div><div class="skel" style="width: 66%"></div><div class="skel" style="width: 38%; height: 9px"></div></div>
+      </div>
+    </div>
+    <div class="pip">
+      <div style="color: var(--pip-down)">↓ 12.4 MB/s</div>
+      <div style="color: var(--pip-up)">↑ 860 KB/s</div>
+    </div>
+  </div></div>
+</div>
+
+<script>
+  // 迷你折线：数据铺满宽度，用 Catmull-Rom 转贝塞尔曲线，效果接近 Swift Charts 的 .monotone
+  function drawSparkline(svg, series, max) {
+    const width = svg.viewBox.baseVal.width;
+    const height = svg.viewBox.baseVal.height;
+    for (const { values, color } of series) {
+      const points = values.map((v, i) => [i * width / (values.length - 1), height - 1 - v / max * (height - 2)]);
+      let d = `M${points[0]}`;
+      for (let i = 0; i < points.length - 1; i++) {
+        const [p0, p1, p2, p3] = [points[i - 1] || points[i], points[i], points[i + 1], points[i + 2] || points[i + 1]];
+        const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+        const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+        d += ` C${c1} ${c2} ${p2}`;
+      }
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', color);
+      path.setAttribute('stroke-width', '2');
+      path.setAttribute('stroke-linejoin', 'round');
+      svg.appendChild(path);
+    }
+  }
+
+  const download = [2.1, 2.4, 3.0, 5.2, 8.8, 10.6, 11.2, 10.4, 9.1, 9.8, 11.6, 12.9, 12.1, 10.8, 9.6, 8.9, 9.4, 10.7, 12.2, 13.4,
+    12.8, 11.5, 10.9, 11.8, 12.6, 13.1, 12.4, 11.0, 9.8, 10.5, 11.9, 12.7, 12.0, 11.3, 11.9, 12.8, 13.2, 12.6, 12.1, 12.4];
+  const upload = [0.2, 0.3, 0.3, 0.5, 0.9, 1.3, 1.1, 0.8, 0.6, 0.9, 1.4, 1.7, 1.4, 1.0, 0.7, 0.6, 0.8, 1.1, 1.5, 1.9,
+    1.5, 1.2, 1.0, 1.2, 1.4, 1.6, 1.3, 1.0, 0.8, 1.0, 1.3, 1.5, 1.2, 1.0, 1.1, 1.3, 1.4, 1.1, 0.9, 0.86];
+  const cpu = [0.14, 0.18, 0.15, 0.22, 0.38, 0.31, 0.21, 0.17, 0.26, 0.44, 0.35, 0.24, 0.19, 0.22, 0.29, 0.41, 0.33, 0.25, 0.2, 0.23];
+
+  drawSparkline(document.getElementById('spark-net'), [
+    { values: download, color: '#0A84FF' },
+    { values: upload, color: '#FF9F0A' },
+  ], Math.max(...download) * 1.1);
+  drawSparkline(document.getElementById('spark-cpu'), [{ values: cpu, color: '#BF5AF2' }], 1);
+</script>
+</body>
+</html>
