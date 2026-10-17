@@ -34,7 +34,6 @@ final class MetricsEngine {
 
     private let network = NetworkMonitor()
     private let cpu = CPUMonitor()
-    private let memory = MemoryMonitor()
     private let battery = BatteryMonitor()
     @ObservationIgnored private var loop: Task<Void, Never>?
     @ObservationIgnored private var ticksSinceSave = 0
@@ -62,6 +61,7 @@ final class MetricsEngine {
         network.pause()
         cpu.pause()
         persist()
+        LiveActivityService.shared.engineDidStop()
     }
 
     private func tick() {
@@ -70,10 +70,10 @@ final class MetricsEngine {
             timestamp: .now,
             network: network.sample(),
             cpu: cpuSample ?? self.snapshot?.cpu,
-            memory: memory.sample(),
+            memory: SystemProbe.memory(),
             battery: battery.sample(),
-            storage: StorageProbe.sample(),
-            thermal: ThermalLevel(ProcessInfo.processInfo.thermalState))
+            storage: SystemProbe.storage(),
+            thermal: SystemProbe.thermal)
         self.snapshot = snapshot
 
         Self.append(snapshot.network.downloadBytesPerSecond, to: &downloadHistory, limit: historyLength)
@@ -82,6 +82,7 @@ final class MetricsEngine {
             Self.append(cpuSample.usage, to: &cpuHistory, limit: historyLength)
         }
         onTick?(snapshot)
+        LiveActivityService.shared.engineDidSample(snapshot)
 
         let isBackground = UIApplication.shared.applicationState == .background
         updateDiagnostics(isBackground: isBackground)

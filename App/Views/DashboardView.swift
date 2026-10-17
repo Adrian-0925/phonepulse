@@ -10,6 +10,7 @@ struct DashboardView: View {
             ScrollView {
                 if let snapshot = engine.snapshot {
                     VStack(spacing: 12) {
+                        LiveActivityCard()
                         NetworkCard(
                             sample: snapshot.network,
                             download: engine.downloadHistory,
@@ -19,7 +20,12 @@ struct DashboardView: View {
                         LazyVGrid(columns: columns, spacing: 12) {
                             CPUCard(sample: snapshot.cpu, history: engine.cpuHistory, capacity: engine.historyLength)
                             MemoryCard(sample: snapshot.memory)
-                            BatteryCard(sample: snapshot.battery)
+                            NavigationLink {
+                                BatteryDetailView()
+                            } label: {
+                                BatteryCard(sample: snapshot.battery)
+                            }
+                            .buttonStyle(.plain)
                             StorageCard(sample: snapshot.storage)
                         }
                         DeviceCard(snapshot: snapshot)
@@ -68,6 +74,51 @@ private struct NetworkCard: View {
                 .foregroundStyle(color)
             MetricValue(text: Format.speed(value))
         }
+    }
+}
+
+// MARK: - 灵动岛
+
+private struct LiveActivityCard: View {
+    @State private var errorMessage: String?
+
+    private var service: LiveActivityService { .shared }
+
+    var body: some View {
+        MetricCard(title: "灵动岛", systemImage: "capsule.fill", tint: Theme.charging) {
+            Picker("重点显示", selection: Binding(get: { service.focus }, set: { service.setFocus($0) })) {
+                ForEach(LiveActivityFocus.allCases, id: \.self) { focus in
+                    Text(focus.label).tag(focus)
+                }
+            }
+            .pickerStyle(.segmented)
+            Button {
+                Task {
+                    do {
+                        try await service.toggle()
+                        errorMessage = nil
+                    } catch {
+                        errorMessage = "无法开启：\(error.localizedDescription)"
+                    }
+                }
+            } label: {
+                Label(service.isRunning ? "关闭灵动岛" : "开启灵动岛", systemImage: service.isRunning ? "stop.fill" : "play.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(service.isRunning ? .gray : Theme.charging)
+            .foregroundStyle(service.isRunning ? .white : .black)
+            Text(caption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var caption: String {
+        if let errorMessage { return errorMessage }
+        if !service.areActivitiesEnabled { return "实时活动已被关闭：请到 设置 → PhonePulse → 实时活动 打开" }
+        if DeviceCatalog.current?.hasDynamicIsland == false { return "你的机型没有灵动岛，会显示在锁屏上" }
+        return "自动：插电时显示电量和充电，否则显示网速。App 在前台或悬浮窗开着时实时刷新，其他时候显示最后一次的数据。"
     }
 }
 
@@ -210,6 +261,9 @@ private struct DeviceCard: View {
     var body: some View {
         MetricCard(title: "设备", systemImage: "iphone", tint: .gray) {
             LabeledContent("机型", value: DeviceCatalog.displayName)
+            if let model = DeviceCatalog.current {
+                LabeledContent("芯片", value: "\(model.chip) · \(model.gpuCores) 核 GPU")
+            }
             LabeledContent("系统", value: "iOS \(UIDevice.current.systemVersion)")
             LabeledContent("温度状态", value: snapshot.thermal.label)
             if let footprint = snapshot.memory?.appFootprintBytes {

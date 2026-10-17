@@ -24,6 +24,7 @@ targets:
       - App
       - Core
       - Shared
+      - Platform
     info:
       path: App/Info.plist
       properties:
@@ -34,6 +35,8 @@ targets:
         # "音频、AirPlay 和画中画"后台模式，悬浮网速窗需要它
         UIBackgroundModes:
           - audio
+        # 灵动岛 / 锁屏实时活动
+        NSSupportsLiveActivities: true
     entitlements:
       path: App/PhonePulse.entitlements
       properties:
@@ -54,7 +57,9 @@ targets:
     platform: iOS
     sources:
       - Widget
+      - Core
       - Shared
+      - Platform
     info:
       path: Widget/Info.plist
       properties:
@@ -69,6 +74,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.adrian-0925.phonepulse.widget
+        # 扩展里不能开启实时活动；Platform 中只在 App 进程运行的代码用 #if !WIDGET_EXTENSION 排除
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) WIDGET_EXTENSION"
 
   # 纯逻辑单元测试：直接编译 Core 和 Shared，不依赖宿主 App，在模拟器上运行
   PhonePulseTests:

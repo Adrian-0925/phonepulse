@@ -10,13 +10,23 @@
 	<array/>
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
-		<!-- 读取主 App 通过 App Group 共享的快照 -->
+		<!-- 自己保存电量历史 + 读取主 App 通过 App Group 共享的电池设置 -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
 			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
+				<string>CA92.1</string>
 				<string>1C8F.1</string>
+			</array>
+		</dict>
+		<!-- 存储指标：向用户展示剩余空间 -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>85F4.1</string>
 			</array>
 		</dict>
 	</array>

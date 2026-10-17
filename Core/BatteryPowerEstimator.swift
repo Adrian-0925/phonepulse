@@ -33,14 +33,31 @@ struct BatteryPowerEstimator {
         changePoints.removeAll { time - $0.time > window }
     }
 
-    /// 正数为充入、负数为放电；数据不足、已充满或不知道容量时返回 nil
-    func estimatedWatts(capacityMAh: Int?) -> Double? {
+    /// 电量变化速度（每小时变化的比例），正数为充电、负数为耗电；数据不足或已充满时返回 nil
+    func levelPerHour() -> Double? {
         guard lastState == .charging || lastState == .unplugged,
-              let capacityMAh, capacityMAh > 0,
               let first = changePoints.first,
               let last = changePoints.last,
               last.time - first.time >= minimumSpan else { return nil }
-        let levelPerHour = (last.level - first.level) / (last.time - first.time) * 3600
-        return levelPerHour * Double(capacityMAh) / 1000 * Self.nominalVoltage
+        return (last.level - first.level) / (last.time - first.time) * 3600
+    }
+
+    /// 正数为充入、负数为放电；数据不足、已充满或不知道容量时返回 nil
+    func estimatedWatts(capacityMAh: Int?) -> Double? {
+        guard let capacityMAh, capacityMAh > 0, let rate = levelPerHour() else { return nil }
+        return Self.watts(levelPerHour: rate, capacityMAh: capacityMAh)
+    }
+
+    static func watts(levelPerHour: Double, capacityMAh: Int) -> Double {
+        levelPerHour * Double(capacityMAh) / 1000 * nominalVoltage
+    }
+}
+
+enum ChargeForecast {
+    /// 按当前速度充到 100% 还需要多久；已充满或速度太慢（每小时不到 1%）时返回 nil。
+    /// 注意：iOS 的优化充电会在 80% 左右暂停，实际可能更久。
+    static func timeToFull(level: Double, levelPerHour: Double) -> TimeInterval? {
+        guard levelPerHour >= 0.01, level < 1 else { return nil }
+        return (1 - level) / levelPerHour * 3600
     }
 }

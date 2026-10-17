@@ -1,12 +1,11 @@
-import UIKit
+import Foundation
 
-/// 电量和充电状态来自 UIDevice（公开 API）。
+/// 电量和充电状态来自 UIDevice（公开 API），读取在 Platform/SystemProbes.swift。
 ///
 /// iOS 没有公开的充电电流/电压接口，充电功率是估算的（算法见 Core/BatteryPowerEstimator.swift），
 /// 它代表电池的净充入功率，不等于充电头输出功率，界面上必须标注"估算"。
 @MainActor
 final class BatteryMonitor {
-    private let device = UIDevice.current
     private var estimator = BatteryPowerEstimator()
     private var lastRawLevel: Float?
 
@@ -17,28 +16,20 @@ final class BatteryMonitor {
 
     var changePointCount: Int { estimator.changePointCount }
 
-    init() {
-        device.isBatteryMonitoringEnabled = true
-    }
-
-    /// 用户在设置里填写的容量优先，否则用机型内置数据
-    var capacityMAh: Int? {
-        let override = UserDefaults.standard.integer(forKey: AppSettings.batteryCapacityKey)
-        return override > 0 ? override : DeviceCatalog.current?.batteryMAh
-    }
-
     func sample() -> BatterySample {
-        rawLevel = device.batteryLevel
+        let reading = BatteryProbe.read()
+        rawLevel = reading.rawLevel
         trackStep(rawLevel)
-        let level: Double? = rawLevel < 0 ? nil : Double(rawLevel)
-        let state = BatteryState(device.batteryState)
-        estimator.record(level: level, state: state, at: ProcessInfo.processInfo.systemUptime)
+        estimator.record(level: reading.level, state: reading.state, at: ProcessInfo.processInfo.systemUptime)
+        // 用"当前满电容量"（设计容量 × 用户填写的最大容量百分比）估算功率，更贴近老化后的电池
+        let fullCharge = BatterySettings.current.capacity?.fullChargeMAh
         return BatterySample(
-            level: level,
-            state: state,
-            isLowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled,
-            estimatedPowerWatts: estimator.estimatedWatts(capacityMAh: capacityMAh),
-            capacityMAh: capacityMAh)
+            level: reading.level,
+            state: reading.state,
+            isLowPowerMode: reading.isLowPowerMode,
+            estimatedPowerWatts: estimator.estimatedWatts(capacityMAh: fullCharge),
+            capacityMAh: fullCharge,
+            levelPerHour: estimator.levelPerHour())
     }
 
     private func trackStep(_ level: Float) {
@@ -47,16 +38,5 @@ final class BatteryMonitor {
         guard let lastRawLevel, level != lastRawLevel else { return }
         let step = Double(abs(level - lastRawLevel))
         smallestObservedStep = min(smallestObservedStep ?? step, step)
-    }
-}
-
-private extension BatteryState {
-    init(_ state: UIDevice.BatteryState) {
-        switch state {
-        case .unplugged: self = .unplugged
-        case .charging: self = .charging
-        case .full: self = .full
-        default: self = .unknown
-        }
     }
 }

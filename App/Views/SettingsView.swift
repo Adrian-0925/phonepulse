@@ -1,23 +1,36 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @AppStorage(AppSettings.batteryCapacityKey) private var capacityOverride = 0
+    @State private var showsGuide = false
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    LabeledContent("机型", value: DeviceCatalog.displayName)
-                    LabeledContent("内置容量", value: DeviceCatalog.current.map { "\($0.batteryMAh) mAh" } ?? "未收录")
-                    LabeledContent("自定义容量") {
-                        TextField("mAh", value: $capacityOverride, format: .number)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
+                    Button {
+                        showsGuide = true
+                    } label: {
+                        Label("添加小组件和开启灵动岛", systemImage: "questionmark.circle")
+                    }
+                    NavigationLink {
+                        BatteryDetailView()
+                    } label: {
+                        Label("电池健康与容量", systemImage: "battery.100percent")
                     }
                 } header: {
-                    Text("电池")
+                    Text("常用")
                 } footer: {
-                    Text("充电功率是根据电量变化速度和电池容量估算的。电池老化后实际容量会变小，可以填写更准确的值（0 表示使用内置数据）。")
+                    Text("在电池页面填写系统设置里的「最大容量」，充电功率和剩余 mAh 会更准。")
+                }
+
+                Section("设备") {
+                    LabeledContent("机型", value: DeviceCatalog.displayName)
+                    if let model = DeviceCatalog.current {
+                        LabeledContent("芯片", value: model.chip)
+                        LabeledContent("GPU", value: "\(model.gpuCores) 核（规格）")
+                        LabeledContent("设计容量", value: "\(model.batteryMAh) mAh（规格）")
+                        LabeledContent("灵动岛", value: model.hasDynamicIsland ? "支持" : "不支持，显示在锁屏")
+                    }
                 }
 
                 Section {
@@ -37,6 +50,9 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("设置")
+            .sheet(isPresented: $showsGuide) {
+                OnboardingView()
+            }
         }
     }
 }

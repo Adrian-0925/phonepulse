@@ -32,6 +32,8 @@ struct PhonePulseApp: App {
 }
 
 struct RootView: View {
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+
     var body: some View {
         TabView {
             DashboardView()
@@ -40,6 +42,10 @@ struct RootView: View {
                 .tabItem { Label("测速", systemImage: "speedometer") }
             SettingsView()
                 .tabItem { Label("设置", systemImage: "gearshape") }
+        }
+        // 第一次打开时引导添加小组件和开启灵动岛
+        .fullScreenCover(isPresented: Binding(get: { !hasCompletedOnboarding }, set: { hasCompletedOnboarding = !$0 })) {
+            OnboardingView()
         }
     }
 }

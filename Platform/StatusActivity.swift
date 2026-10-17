@@ -1,0 +1,85 @@
+import ActivityKit
+import SwiftUI
+
+/// 灵动岛收起时重点显示什么
+enum LiveActivityFocus: String, Codable, Hashable, CaseIterable {
+    /// 插着电时看电池，否则看网速
+    case auto
+    case charging
+    case network
+    case performance
+
+    var label: String {
+        switch self {
+        case .auto: "自动"
+        case .charging: "电池"
+        case .network: "网速"
+        case .performance: "性能"
+        }
+    }
+}
+
+/// 灵动岛 / 锁屏实时活动的数据。所有内容都在 ContentState 里，切换显示内容不需要重新开启。
+struct StatusActivityAttributes: ActivityAttributes {
+    struct ContentState: Codable, Hashable {
+        var focus: LiveActivityFocus
+        var batteryLevel: Double?
+        var batteryState: BatteryState
+        /// 估算
+        var powerWatts: Double?
+        /// 估算，每小时变化的比例
+        var levelPerHour: Double?
+        /// 估算的充满时间；系统会让倒计时和进度条自己走动，不需要 App 更新
+        var fullDate: Date?
+        var downloadBytesPerSecond: Double
+        var uploadBytesPerSecond: Double
+        /// 整机 CPU 使用率；系统不开放时为 nil
+        var cpuUsage: Double?
+        var thermal: ThermalLevel
+        var updatedAt: Date
+        /// App 正在采样（前台或悬浮窗开着）；false 表示显示的是最后一次的数据
+        var isLive: Bool
+
+        var effectiveFocus: LiveActivityFocus {
+            guard focus == .auto else { return focus }
+            return batteryState.isPluggedIn ? .charging : .network
+        }
+
+        var batteryText: String {
+            batteryLevel.map { String(format: "%.0f%%", $0 * 100) } ?? "--"
+        }
+
+        var accentColor: Color {
+            switch effectiveFocus {
+            case .auto, .charging: Theme.batteryColor(level: batteryLevel, state: batteryState)
+            case .network: Theme.network
+            case .performance: Theme.cpu
+            }
+        }
+    }
+}
+
+extension StatusActivityAttributes.ContentState {
+    /// 由 App 的一次完整采样生成
+    init(snapshot: MetricsSnapshot, focus: LiveActivityFocus, isLive: Bool) {
+        let battery = snapshot.battery
+        var fullDate: Date?
+        if battery.state == .charging, let level = battery.level, let rate = battery.levelPerHour,
+           let seconds = ChargeForecast.timeToFull(level: level, levelPerHour: rate) {
+            fullDate = snapshot.timestamp.addingTimeInterval(seconds)
+        }
+        self.init(
+            focus: focus,
+            batteryLevel: battery.level,
+            batteryState: battery.state,
+            powerWatts: battery.estimatedPowerWatts,
+            levelPerHour: battery.levelPerHour,
+            fullDate: fullDate,
+            downloadBytesPerSecond: snapshot.network.downloadBytesPerSecond,
+            uploadBytesPerSecond: snapshot.network.uploadBytesPerSecond,
+            cpuUsage: snapshot.cpu?.isSystemWide == true ? snapshot.cpu?.usage : nil,
+            thermal: snapshot.thermal,
+            updatedAt: snapshot.timestamp,
+            isLive: isLive)
+    }
+}

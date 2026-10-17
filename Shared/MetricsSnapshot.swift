@@ -59,7 +59,10 @@ struct BatterySample: Codable, Equatable {
     var isLowPowerMode: Bool
     /// 估算的电池净功率（瓦），正数为充入、负数为放电；采样不足时为 nil
     var estimatedPowerWatts: Double?
+    /// 当前满电容量（mAh）= 设计容量 × 最大容量百分比
     var capacityMAh: Int?
+    /// 电量变化速度（每小时变化的比例，0.18 = 每小时 +18%），根据电量变化推算
+    var levelPerHour: Double? = nil
 }
 
 enum BatteryState: String, Codable {
@@ -73,6 +76,8 @@ enum BatteryState: String, Codable {
         case .full: "已充满"
         }
     }
+
+    var isPluggedIn: Bool { self == .charging || self == .full }
 }
 
 struct StorageSample: Codable, Equatable {
@@ -94,6 +99,19 @@ enum ThermalLevel: String, Codable {
         case .critical: "严重"
         }
     }
+
+    /// 0 ~ 3，越大越热
+    var severity: Int {
+        switch self {
+        case .nominal: 0
+        case .fair: 1
+        case .serious: 2
+        case .critical: 3
+        }
+    }
+
+    /// 达到「高」时系统通常会降低性能
+    var isThrottling: Bool { severity >= 2 }
 }
 
 extension MetricsSnapshot {
@@ -108,7 +126,7 @@ extension MetricsSnapshot {
             connection: .wifi),
         cpu: CPUSample(usage: 0.23, user: 0.15, system: 0.08, isSystemWide: true, coreCount: 6),
         memory: MemorySample(totalBytes: 6 << 30, usedBytes: 4 << 30, appFootprintBytes: 80 << 20),
-        battery: BatterySample(level: 0.76, state: .charging, isLowPowerMode: false, estimatedPowerWatts: 15.2, capacityMAh: 3274),
+        battery: BatterySample(level: 0.76, state: .charging, isLowPowerMode: false, estimatedPowerWatts: 15.2, capacityMAh: 3274, levelPerHour: 0.42),
         storage: StorageSample(totalBytes: 128_000_000_000, availableBytes: 42_000_000_000),
         thermal: .nominal)
 }
