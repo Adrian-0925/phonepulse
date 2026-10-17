@@ -42,6 +42,8 @@ jobs:
           test -d "$APP/PlugIns/PhonePulseWidget.appex" || { echo "::error::App 里没有嵌入小组件扩展"; exit 1; }
           /usr/libexec/PlistBuddy -c "Print :UIBackgroundModes" "$APP/Info.plist"
           test -f "$APP/PrivacyInfo.xcprivacy" || { echo "::error::隐私清单没有打包进 App"; exit 1; }
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName" "$APP/Info.plist" || { echo "::error::App 图标没有编译进 App"; exit 1; }
+          test -f "$APP/Assets.car" || { echo "::error::没有找到编译后的资源包 Assets.car"; exit 1; }
           ls -la "$APP" "$APP/PlugIns"
 
       - name: Run unit tests

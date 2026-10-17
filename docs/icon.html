@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>PhonePulse 图标</title>
+<!--
+  App 图标的源文件，画布 1024×1024。地址后面的 #light / #dark / #tinted 切换三种外观：
+    light   默认图标，也是 App Store 上显示的那张
+    dark    iOS 18 深色主屏幕
+    tinted  iOS 18 着色主屏幕（灰度图，系统按用户选的颜色上色）
+  改完后在项目根目录用 PowerShell 运行 docs/export-icon.ps1 重新导出到 App/Assets.xcassets/AppIcon.appiconset。
+  圆角由系统裁切，这里画满整块正方形，不要自己加圆角和透明区域。
+-->
+<style>
+  * { margin: 0; padding: 0; }
+  html, body { width: 1024px; height: 1024px; overflow: hidden; background: #000; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<svg id="icon" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx=".5" cy=".38" r=".78">
+      <stop offset="0" style="stop-color: var(--bg-center)"/>
+      <stop offset="1" style="stop-color: var(--bg-edge)"/>
+    </radialGradient>
+    <!-- 轨迹从左往右：淡入的蓝（下行色）→ 紫 → 橙（上行色），同悬浮窗配色 -->
+    <linearGradient id="trace" x1="171" y1="0" x2="853" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" style="stop-color: var(--trace-1); stop-opacity: .4"/>
+      <stop offset=".42" style="stop-color: var(--trace-1)"/>
+      <stop offset=".74" style="stop-color: var(--trace-2)"/>
+      <stop offset="1" style="stop-color: var(--trace-3)"/>
+    </linearGradient>
+    <!-- 滤镜区域铺满整个画布，光晕才不会被裁出直边 -->
+    <filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <feGaussianBlur stdDeviation="26"/>
+    </filter>
+    <filter id="ambient" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <feGaussianBlur stdDeviation="110"/>
+    </filter>
+    <path id="pulse" d="M171 512H330L418 300L548 724L640 432L700 512H853"/>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- 示波器网格，小尺寸下自然隐去 -->
+  <g stroke="#fff" stroke-width="4" style="stroke-opacity: var(--grid)">
+    <path d="M128 0V1024M256 0V1024M384 0V1024M512 0V1024M640 0V1024M768 0V1024M896 0V1024"/>
+    <path d="M0 128H1024M0 256H1024M0 384H1024M0 640H1024M0 768H1024M0 896H1024"/>
+  </g>
+  <path d="M0 512H1024" stroke="#fff" stroke-width="4" style="stroke-opacity: calc(var(--grid) * 1.8)"/>
+  <ellipse cx="540" cy="512" rx="330" ry="210" style="fill: var(--trace-2); opacity: var(--ambient)" filter="url(#ambient)"/>
+
+  <use href="#pulse" fill="none" stroke="url(#trace)" stroke-width="84" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)" style="opacity: var(--halo)"/>
+  <use href="#pulse" fill="none" stroke="url(#trace)" stroke-width="76" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- 轨迹最前端的亮点：数据正在实时刷新 -->
+  <circle cx="853" cy="512" r="74" filter="url(#glow)" style="fill: var(--trace-3); opacity: var(--halo)"/>
+  <circle cx="853" cy="512" r="48" fill="#fff"/>
+</svg>
+
+<script>
+  const variants = {
+    light:  { '--bg-center': '#232B68', '--bg-edge': '#080B17', '--grid': .07, '--ambient': .30, '--halo': .85,
+              '--trace-1': '#59BFFF', '--trace-2': '#A08CFF', '--trace-3': '#FF9E33' },
+    dark:   { '--bg-center': '#141936', '--bg-edge': '#000000', '--grid': .05, '--ambient': .22, '--halo': .85,
+              '--trace-1': '#59BFFF', '--trace-2': '#A08CFF', '--trace-3': '#FF9E33' },
+    tinted: { '--bg-center': '#1A1A1A', '--bg-edge': '#000000', '--grid': .05, '--ambient': .12, '--halo': .55,
+              '--trace-1': '#C8C8C8', '--trace-2': '#E6E6E6', '--trace-3': '#FFFFFF' },
+  };
+  const vars = variants[location.hash.slice(1)] || variants.light;
+  for (const [name, value] of Object.entries(vars)) document.documentElement.style.setProperty(name, value);
+</script>
+</body>
+</html>

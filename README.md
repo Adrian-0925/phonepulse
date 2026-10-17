@@ -47,13 +47,14 @@ App/                     主 App
   FloatingWindow/        画中画悬浮网速窗
   Diagnostics/           真机诊断页 + 事件日志
   Views/                 SwiftUI 界面
+  Assets.xcassets/       App 图标（由 docs/icon.html 导出，不要直接改 PNG）
   PrivacyInfo.xcprivacy  隐私清单
 Core/                    纯计算逻辑（网速增量、CPU 占用、功率估算），不碰系统 API，有单元测试
 Shared/                  App 与小组件共用：数据模型、App Group 存储、格式化
 Widget/                  桌面 / 锁屏小组件
 Tests/                   Core 和 Shared 的单元测试
 .github/workflows/       云端 macOS 编译 + 测试
-docs/                    封面图：cover.html 是源文件，cover.png 由它导出
+docs/                    封面图和图标的源文件：cover.html → cover.png，icon.html → App 图标（export-icon.ps1 导出）
 ```
 
 数据流：`各 Monitor` → `MetricsEngine`（每秒采样，保留 60 秒曲线）→ 界面；同时每 30 秒和退到后台时把快照写进 App Group → 小组件读取。
@@ -82,11 +83,20 @@ iOS 不允许 App 在别的 App 上面画东西，但允许"画中画播放视�
 
 **已知限制**：画中画上会有系统自带的播放/暂停按钮（没有公开 API 能隐藏），点了也没影响；悬浮窗大小和位置由系统控制。
 
+## App 图标
+
+深色示波器底上一条实时脉搏轨迹：配色从蓝（下行）渐变到橙（上行），和悬浮窗一致；最前端的亮点表示数据正在刷新。深色底在多数亮色图标中间更显眼，也和深色仪表盘、黑底悬浮窗是一套视觉。
+
+- 源文件是 `docs/icon.html`，1024×1024，有三种外观：默认、iOS 18 深色主屏幕、iOS 18 着色主屏幕（灰度，系统按用户选的颜色上色）。iOS 17 只用默认那张。
+- 改完在项目根目录运行 `powershell -ExecutionPolicy Bypass -File docs/export-icon.ps1`，会用 Edge 截图导出三张 PNG 到 `App/Assets.xcassets/AppIcon.appiconset`，并去掉透明通道（App Store 不接受带透明通道的图标）。改图标后封面图也要按 `docs/cover.html` 开头的命令重新导出。
+- 圆角由系统裁切，源文件画满整块正方形即可。
+- iOS 26 的 Liquid Glass 分层图标要用 Mac 上的 Icon Composer 制作；现在这套 PNG 在 iOS 26 上照常可用，以后有 Mac 再考虑升级。
+
 ## 验证分三层
 
 | 层次 | 能证明什么 | 不能证明什么 | 怎么做 |
 |---|---|---|---|
-| 云端编译 | 代码没有语法/类型错误，App 和小组件都打包出来了，Info.plist 与隐私清单生效 | 任何运行时行为 | GitHub Actions 自动执行 |
+| 云端编译 | 代码没有语法/类型错误，App 和小组件都打包出来了，Info.plist、隐私清单和 App 图标生效 | 任何运行时行为 | GitHub Actions 自动执行 |
 | 单元测试 | 网速增量（含回绕、接口重置）、CPU 占用、功率估算、格式化的计算正确 | 系统 API 在真机上能否读到数据、悬浮窗行为 | GitHub Actions 在模拟器上自动执行 |
 | 真机验证 | 实际功能是否正常 | — | 装到 iPhone 上，按下面的步骤操作 |
 
@@ -160,4 +170,5 @@ open PhonePulse.xcodeproj
 - [ ] **决定是否开通付费账号**：P0 验证通过、确定要上架时再开通，再搭 TestFlight 发布流程
 - [ ] **Phase 2 差异化**：悬浮窗样式自定义（显示内容、颜色、大小）、灵动岛实时活动、每日/每月流量统计、充电曲线记录
 - [ ] **Phase 3 变现**：StoreKit 2 内购（基础功能免费，悬浮窗 / 历史曲线 / 更多小组件样式付费）
-- [ ] **上架准备**：App 图标、多语言、截图、隐私政策页面
+- [x] **App 图标**：默认 + iOS 18 深色 / 着色三种外观（待云端编译验证）
+- [ ] **上架准备**：多语言、截图、隐私政策页面

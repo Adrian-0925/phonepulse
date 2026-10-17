@@ -45,7 +45,7 @@
   /* 左侧文案 */
   .copy { position: absolute; left: 72px; top: 64px; width: 540px; }
   .brand { display: flex; align-items: center; gap: 12px; }
-  .brand > svg { width: 44px; height: 44px; }
+  .brand > img { width: 44px; height: 44px; border-radius: 22.37%; box-shadow: 0 0 0 1px rgba(255, 255, 255, .16); }
   .brand .name { font-size: 25px; font-weight: 600; }
   .brand .tag {
     margin-left: 4px; padding: 3px 11px; border-radius: 999px;
@@ -144,16 +144,7 @@
 
 <section class="copy">
   <div class="brand">
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <defs>
-        <linearGradient id="logo" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#2AA0FF"/>
-          <stop offset="1" stop-color="#5E5CE6"/>
-        </linearGradient>
-      </defs>
-      <rect width="48" height="48" rx="11" fill="url(#logo)"/>
-      <path d="M8 26h8l3.5-9 6 18 4-12 2.5 3H40" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
+    <img src="../App/Assets.xcassets/AppIcon.appiconset/AppIcon.png" alt="">
     <span class="name">PhonePulse</span>
     <span class="tag">iPhone 设备状态监测</span>
   </div>
