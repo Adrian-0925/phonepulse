@@ -2,19 +2,28 @@ import SwiftUI
 
 @main
 struct PhonePulseApp: App {
-    @State private var engine = MetricsEngine()
+    @State private var engine: MetricsEngine
+    @State private var floating: FloatingSpeedController
     @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        let engine = MetricsEngine()
+        _engine = State(initialValue: engine)
+        _floating = State(initialValue: FloatingSpeedController(engine: engine))
+    }
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(engine)
+                .environment(floating)
         }
-        // iOS 不允许 App 在后台持续运行，所以只在前台采样，退到后台时保存快照给小组件
+        // iOS 不允许 App 在后台持续运行，所以只在前台采样，退到后台时保存快照给小组件。
+        // 例外：悬浮窗开着时系统允许 App 继续运行，这时不停止采样。
         .onChange(of: scenePhase, initial: true) { _, phase in
             switch phase {
             case .active: engine.start()
-            case .background: engine.stop()
+            case .background where !floating.isActive: engine.stop()
             default: break
             }
         }

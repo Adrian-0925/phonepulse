@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UIKit
 import WidgetKit
 
 /// 采样调度中心：App 在前台时每秒采一次所有指标，保留最近 60 秒的曲线，
@@ -13,6 +14,9 @@ final class MetricsEngine {
     private(set) var downloadHistory: [Double] = []
     private(set) var uploadHistory: [Double] = []
     private(set) var cpuHistory: [Double] = []
+
+    /// 每次采样后回调，悬浮窗用它刷新画面
+    @ObservationIgnored var onTick: ((MetricsSnapshot) -> Void)?
 
     private let network = NetworkMonitor()
     private let cpu = CPUMonitor()
@@ -58,18 +62,22 @@ final class MetricsEngine {
         if let cpuSample {
             Self.append(cpuSample.usage, to: &cpuHistory, limit: historyLength)
         }
+        onTick?(snapshot)
 
         ticksSinceSave += 1
         if ticksSinceSave >= saveEvery {
-            persist()
+            // 后台（悬浮窗开着）时刷新小组件会消耗系统给的刷新额度，只保存数据
+            persist(reloadWidgets: UIApplication.shared.applicationState == .active)
         }
     }
 
-    private func persist() {
+    private func persist(reloadWidgets: Bool = true) {
         ticksSinceSave = 0
         guard let snapshot else { return }
         SharedStore.save(snapshot)
-        WidgetCenter.shared.reloadAllTimelines()
+        if reloadWidgets {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
     }
 
     private static func append(_ value: Double, to history: inout [Double], limit: Int) {

@@ -1,0 +1,151 @@
+import AVFoundation
+import AVKit
+import Observation
+import UIKit
+
+/// 画中画悬浮网速窗（原型）。
+///
+/// 原理：iOS 不允许 App 在别的 App 上面画东西，但允许"画中画播放视频"。
+/// 这里每秒把网速画成一帧视频喂给 AVSampleBufferDisplayLayer，再交给画中画显示。
+/// 画中画开着时系统会让 App 在后台继续运行，所以能持续采样、刷新画面。
+///
+/// 前提：Info.plist 声明 UIBackgroundModes = audio（即"音频、AirPlay 和画中画"后台模式），音频会话设为 playback。
+/// 审核风险：画中画的本意是播放视频，用来显示数据属于灰色地带，国区已有同类 App 上架，但不保证一定能过。
+@MainActor
+@Observable
+final class FloatingSpeedController: NSObject {
+    let isSupported = AVPictureInPictureController.isPictureInPictureSupported()
+    private(set) var isPossible = false
+    private(set) var isActive = false
+    private(set) var errorMessage: String?
+
+    /// 画中画的视频源。必须放进界面里（仪表盘的预览卡片）才能开启画中画。
+    let sourceView = SampleBufferView()
+
+    private let engine: MetricsEngine
+    @ObservationIgnored private var pipController: AVPictureInPictureController?
+    @ObservationIgnored private var possibleObservation: NSKeyValueObservation?
+    @ObservationIgnored private var audioSessionReady = false
+
+    init(engine: MetricsEngine) {
+        self.engine = engine
+        super.init()
+        sourceView.displayLayer.videoGravity = .resizeAspect
+        render(download: 0, upload: 0)
+        engine.onTick = { [weak self] snapshot in
+            self?.render(download: snapshot.network.downloadBytesPerSecond, upload: snapshot.network.uploadBytesPerSecond)
+        }
+        setUpPictureInPicture()
+    }
+
+    /// 画中画要求音频会话为 playback；mixWithOthers 保证不会打断用户正在听的音乐。
+    func prepare() {
+        guard !audioSessionReady else { return }
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try session.setActive(true)
+            audioSessionReady = true
+        } catch {
+            errorMessage = "音频会话配置失败：\(error.localizedDescription)"
+        }
+    }
+
+    func toggle() {
+        guard let pipController else { return }
+        if pipController.isPictureInPictureActive {
+            pipController.stopPictureInPicture()
+        } else {
+            prepare()
+            errorMessage = nil
+            pipController.startPictureInPicture()
+        }
+    }
+
+    private func setUpPictureInPicture() {
+        guard isSupported else { return }
+        let source = AVPictureInPictureController.ContentSource(
+            sampleBufferDisplayLayer: sourceView.displayLayer,
+            playbackDelegate: self)
+        let controller = AVPictureInPictureController(contentSource: source)
+        controller.delegate = self
+        // 在 App 里开着预览时切到后台，自动弹出悬浮窗（需用户在系统设置里开启"自动开启画中画"）
+        controller.canStartPictureInPictureAutomaticallyFromInline = true
+        controller.requiresLinearPlayback = true
+        possibleObservation = controller.observe(\.isPictureInPicturePossible, options: [.initial, .new]) { [weak self] _, change in
+            let possible = change.newValue ?? false
+            Task { @MainActor [weak self] in self?.isPossible = possible }
+        }
+        pipController = controller
+    }
+
+    private func render(download: Double, upload: Double) {
+        guard let buffer = SpeedFrameRenderer.makeSampleBuffer(download: download, upload: upload) else { return }
+        let renderer = sourceView.displayLayer.sampleBufferRenderer
+        // App 切后台等情况会让渲染器进入 failed 状态，需要 flush 才能继续显示
+        if renderer.status == .failed {
+            renderer.flush()
+        }
+        renderer.enqueue(buffer)
+    }
+}
+
+// MARK: - 画中画生命周期
+
+extension FloatingSpeedController: AVPictureInPictureControllerDelegate {
+    nonisolated func pictureInPictureControllerDidStartPictureInPicture(_ controller: AVPictureInPictureController) {
+        Task { @MainActor in
+            self.isActive = true
+            // 切后台自动弹出的情况：切后台那一刻引擎已经停了，这里重新启动
+            self.engine.start()
+        }
+    }
+
+    nonisolated func pictureInPictureControllerDidStopPictureInPicture(_ controller: AVPictureInPictureController) {
+        Task { @MainActor in
+            self.isActive = false
+            if UIApplication.shared.applicationState == .background {
+                self.engine.stop()
+            }
+        }
+    }
+
+    nonisolated func pictureInPictureController(_ controller: AVPictureInPictureController, failedToStartPictureInPictureWithError error: Error) {
+        let message = error.localizedDescription
+        Task { @MainActor in
+            self.errorMessage = "无法开启画中画：\(message)"
+        }
+    }
+
+    nonisolated func pictureInPictureController(
+        _ controller: AVPictureInPictureController,
+        restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
+    ) {
+        completionHandler(true)
+    }
+}
+
+// MARK: - 播放控制（我们的"视频"是实时内容，没有暂停和进度）
+
+extension FloatingSpeedController: AVPictureInPictureSampleBufferPlaybackDelegate {
+    nonisolated func pictureInPictureController(_ controller: AVPictureInPictureController, setPlaying playing: Bool) {}
+
+    nonisolated func pictureInPictureControllerTimeRangeForPlayback(_ controller: AVPictureInPictureController) -> CMTimeRange {
+        // 无限长的时间范围表示直播内容，画中画不显示进度条
+        CMTimeRange(start: .negativeInfinity, duration: .positiveInfinity)
+    }
+
+    nonisolated func pictureInPictureControllerIsPlaybackPaused(_ controller: AVPictureInPictureController) -> Bool {
+        false
+    }
+
+    nonisolated func pictureInPictureController(_ controller: AVPictureInPictureController, didTransitionToRenderSize newRenderSize: CMVideoDimensions) {}
+
+    nonisolated func pictureInPictureController(
+        _ controller: AVPictureInPictureController,
+        skipByInterval skipInterval: CMTime,
+        completion completionHandler: @escaping () -> Void
+    ) {
+        completionHandler()
+    }
+}

@@ -15,6 +15,7 @@ struct DashboardView: View {
                             download: engine.downloadHistory,
                             upload: engine.uploadHistory,
                             capacity: engine.historyLength)
+                        FloatingWindowCard()
                         LazyVGrid(columns: columns, spacing: 12) {
                             CPUCard(sample: snapshot.cpu, history: engine.cpuHistory, capacity: engine.historyLength)
                             MemoryCard(sample: snapshot.memory)
@@ -67,6 +68,41 @@ private struct NetworkCard: View {
                 .foregroundStyle(color)
             MetricValue(text: Format.speed(value))
         }
+    }
+}
+
+// MARK: - 悬浮窗
+
+private struct FloatingWindowCard: View {
+    @Environment(FloatingSpeedController.self) private var floating
+
+    var body: some View {
+        MetricCard(title: "悬浮网速窗", systemImage: "pip", tint: .indigo) {
+            // 这就是画中画的视频源，必须显示在界面上才能开启悬浮窗
+            SampleBufferPreview(view: floating.sourceView)
+                .aspectRatio(SpeedFrameRenderer.size.width / SpeedFrameRenderer.size.height, contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            Button {
+                floating.toggle()
+            } label: {
+                Label(floating.isActive ? "关闭悬浮窗" : "开启悬浮窗", systemImage: floating.isActive ? "pip.exit" : "pip.enter")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.indigo)
+            .disabled(!floating.isSupported || (!floating.isActive && !floating.isPossible))
+            Text(caption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .onAppear { floating.prepare() }
+    }
+
+    private var caption: String {
+        if let error = floating.errorMessage { return error }
+        if !floating.isSupported { return "此设备不支持画中画" }
+        if floating.isActive { return "悬浮窗已开启，切到其他 App 也能看到网速" }
+        return floating.isPossible ? "开启后切到其他 App，网速会一直悬浮显示（原型）" : "正在准备画中画…"
     }
 }
 

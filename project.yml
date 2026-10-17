@@ -30,6 +30,9 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        # "音频、AirPlay 和画中画"后台模式，悬浮网速窗需要它
+        UIBackgroundModes:
+          - audio
     entitlements:
       path: App/PhonePulse.entitlements
       properties:
