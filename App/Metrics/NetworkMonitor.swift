@@ -2,16 +2,15 @@ import Foundation
 import Network
 
 /// 实时网速：读取系统网卡的累计收发字节数（getifaddrs），两次采样相减再除以时间间隔。
-/// 只统计 Wi-Fi（en0）和蜂窝（pdp_ip*）；VPN 的 utun 流量已经包含在物理网卡里，跳过以免重复计算。
+/// 增量计算（回绕、接口重置、Wi-Fi/蜂窝分类）在 Core/TrafficCounter.swift，有单元测试。
 final class NetworkMonitor {
     private(set) var connection: ConnectionType = .none
+    /// 最近一次读到的所有网卡原始计数，诊断页用
+    private(set) var lastReadings: [InterfaceReading] = []
 
     private let pathMonitor = NWPathMonitor()
-    /// if_data 里的计数器是 32 位的，超过 4 GB 会回绕，所以记下上次的原始值、只累加增量
-    private var lastRaw: [String: (rx: UInt32, tx: UInt32)] = [:]
+    private var counter = TrafficCounter()
     private var lastSampleTime: TimeInterval?
-    private var sessionWifiBytes: UInt64 = 0
-    private var sessionCellularBytes: UInt64 = 0
 
     init() {
         pathMonitor.pathUpdateHandler = { [weak self] path in
@@ -25,20 +24,21 @@ final class NetworkMonitor {
     }
 
     func sample() -> NetworkSample {
-        let delta = readInterfaces()
+        lastReadings = Self.readInterfaces()
+        let delta = counter.update(with: lastReadings)
         let now = ProcessInfo.processInfo.systemUptime
         var download = 0.0
         var upload = 0.0
         if let lastSampleTime, now > lastSampleTime {
-            download = Double(delta.rx) / (now - lastSampleTime)
-            upload = Double(delta.tx) / (now - lastSampleTime)
+            download = Double(delta.received) / (now - lastSampleTime)
+            upload = Double(delta.sent) / (now - lastSampleTime)
         }
         lastSampleTime = now
         return NetworkSample(
             downloadBytesPerSecond: download,
             uploadBytesPerSecond: upload,
-            sessionWifiBytes: sessionWifiBytes,
-            sessionCellularBytes: sessionCellularBytes,
+            sessionWifiBytes: counter.sessionWifiBytes,
+            sessionCellularBytes: counter.sessionCellularBytes,
             connection: connection)
     }
 
@@ -47,52 +47,23 @@ final class NetworkMonitor {
         lastSampleTime = nil
     }
 
-    /// 返回自上次读取以来、已知接口上新增的字节数。第一次见到的接口只记录基准值。
-    private func readInterfaces() -> (rx: UInt64, tx: UInt64) {
+    private static func readInterfaces() -> [InterfaceReading] {
         var head: UnsafeMutablePointer<ifaddrs>?
-        guard getifaddrs(&head) == 0, let first = head else { return (0, 0) }
+        guard getifaddrs(&head) == 0, let first = head else { return [] }
         defer { freeifaddrs(head) }
 
-        var totalRx: UInt64 = 0
-        var totalTx: UInt64 = 0
+        var readings: [InterfaceReading] = []
         for pointer in sequence(first: first, next: { $0.pointee.ifa_next }) {
             let ifa = pointer.pointee
             guard let addr = ifa.ifa_addr, addr.pointee.sa_family == UInt8(AF_LINK),
                   let data = ifa.ifa_data else { continue }
-            let name = String(cString: ifa.ifa_name)
-            guard let kind = InterfaceKind(name: name) else { continue }
-
             let stats = data.assumingMemoryBound(to: if_data.self).pointee
-            let rx = stats.ifi_ibytes
-            let tx = stats.ifi_obytes
-            defer { lastRaw[name] = (rx, tx) }
-            guard let last = lastRaw[name] else { continue }
-
-            // &- 是溢出减法，计数器回绕后也能得到正确的增量
-            let deltaRx = UInt64(rx &- last.rx)
-            let deltaTx = UInt64(tx &- last.tx)
-            totalRx += deltaRx
-            totalTx += deltaTx
-            switch kind {
-            case .wifi: sessionWifiBytes += deltaRx + deltaTx
-            case .cellular: sessionCellularBytes += deltaRx + deltaTx
-            }
+            readings.append(InterfaceReading(
+                name: String(cString: ifa.ifa_name),
+                receivedBytes: stats.ifi_ibytes,
+                sentBytes: stats.ifi_obytes))
         }
-        return (totalRx, totalTx)
-    }
-}
-
-private enum InterfaceKind {
-    case wifi, cellular
-
-    init?(name: String) {
-        if name == "en0" {
-            self = .wifi
-        } else if name.hasPrefix("pdp_ip") {
-            self = .cellular
-        } else {
-            return nil
-        }
+        return readings
     }
 }
 

@@ -3,6 +3,19 @@ import Observation
 import UIKit
 import WidgetKit
 
+/// 真机诊断用的原始数据，诊断页和诊断报告读取它
+struct EngineDiagnostics {
+    var tickCount = 0
+    /// 在后台（悬浮窗开着）时完成的采样次数
+    var backgroundTickCount = 0
+    /// 后台时相邻两次采样的最大间隔（按真实时间）。接近 1 秒说明后台一直在刷新，明显变大说明被系统暂停过
+    var maxBackgroundGap: TimeInterval = 0
+    var rawBatteryLevel: Float = -1
+    var smallestBatteryStep: Double?
+    var batteryChangePoints = 0
+    var interfaces: [InterfaceReading] = []
+}
+
 /// 采样调度中心：App 在前台时每秒采一次所有指标，保留最近 60 秒的曲线，
 /// 并定期把最新快照写进 App Group 供小组件读取。
 @MainActor
@@ -14,6 +27,7 @@ final class MetricsEngine {
     private(set) var downloadHistory: [Double] = []
     private(set) var uploadHistory: [Double] = []
     private(set) var cpuHistory: [Double] = []
+    private(set) var diagnostics = EngineDiagnostics()
 
     /// 每次采样后回调，悬浮窗用它刷新画面
     @ObservationIgnored var onTick: ((MetricsSnapshot) -> Void)?
@@ -24,11 +38,13 @@ final class MetricsEngine {
     private let battery = BatteryMonitor()
     @ObservationIgnored private var loop: Task<Void, Never>?
     @ObservationIgnored private var ticksSinceSave = 0
+    @ObservationIgnored private var lastTickDate: Date?
     /// 每隔多少次采样保存一次快照给小组件
     private let saveEvery = 30
 
     func start(interval: Duration = .seconds(1)) {
         guard loop == nil else { return }
+        EventLog.shared.add("开始采样（App \(UIApplication.shared.applicationState.label)）")
         loop = Task { [weak self] in
             while !Task.isCancelled {
                 self?.tick()
@@ -38,8 +54,11 @@ final class MetricsEngine {
     }
 
     func stop() {
+        guard loop != nil else { return }
+        EventLog.shared.add("停止采样")
         loop?.cancel()
         loop = nil
+        lastTickDate = nil
         network.pause()
         cpu.pause()
         persist()
@@ -64,11 +83,32 @@ final class MetricsEngine {
         }
         onTick?(snapshot)
 
+        let isBackground = UIApplication.shared.applicationState == .background
+        updateDiagnostics(isBackground: isBackground)
+
         ticksSinceSave += 1
         if ticksSinceSave >= saveEvery {
             // 后台（悬浮窗开着）时刷新小组件会消耗系统给的刷新额度，只保存数据
-            persist(reloadWidgets: UIApplication.shared.applicationState == .active)
+            persist(reloadWidgets: !isBackground)
         }
+    }
+
+    private func updateDiagnostics(isBackground: Bool) {
+        let now = Date.now
+        var next = diagnostics
+        next.tickCount += 1
+        if isBackground {
+            next.backgroundTickCount += 1
+            if let lastTickDate {
+                next.maxBackgroundGap = max(next.maxBackgroundGap, now.timeIntervalSince(lastTickDate))
+            }
+        }
+        lastTickDate = now
+        next.rawBatteryLevel = battery.rawLevel
+        next.smallestBatteryStep = battery.smallestObservedStep
+        next.batteryChangePoints = battery.changePointCount
+        next.interfaces = network.lastReadings
+        diagnostics = next
     }
 
     private func persist(reloadWidgets: Bool = true) {

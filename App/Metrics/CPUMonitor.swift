@@ -1,34 +1,21 @@
 import Foundation
 
 /// CPU 占用：优先读整机 CPU tick（host_statistics），读不到时退回到只统计本 App 进程（getrusage）。
-/// 两次采样之间的差值才是占用率，所以第一次调用返回 nil。
+/// 两次采样之间的差值才是占用率，所以第一次调用返回 nil。tick 差值计算在 Core/CPULoad.swift。
 final class CPUMonitor {
-    private struct Ticks {
-        var user: UInt32
-        var system: UInt32
-        var idle: UInt32
-        var nice: UInt32
-    }
-
     private let host = mach_host_self()
     private let coreCount = ProcessInfo.processInfo.activeProcessorCount
-    private var lastTicks: Ticks?
+    private var lastTicks: CPUTicks?
     private var lastProcess: (user: TimeInterval, system: TimeInterval, uptime: TimeInterval)?
 
     func sample() -> CPUSample? {
         guard let ticks = readHostTicks() else { return sampleProcess() }
         defer { lastTicks = ticks }
-        guard let previous = lastTicks else { return nil }
-
-        let user = Double(ticks.user &- previous.user) + Double(ticks.nice &- previous.nice)
-        let system = Double(ticks.system &- previous.system)
-        let idle = Double(ticks.idle &- previous.idle)
-        let total = user + system + idle
-        guard total > 0 else { return nil }
+        guard let previous = lastTicks, let load = CPULoad(from: previous, to: ticks) else { return nil }
         return CPUSample(
-            usage: (user + system) / total,
-            user: user / total,
-            system: system / total,
+            usage: load.usage,
+            user: load.user,
+            system: load.system,
             isSystemWide: true,
             coreCount: coreCount)
     }
@@ -38,7 +25,7 @@ final class CPUMonitor {
         lastProcess = nil
     }
 
-    private func readHostTicks() -> Ticks? {
+    private func readHostTicks() -> CPUTicks? {
         var info = host_cpu_load_info()
         var count = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info_data_t>.stride / MemoryLayout<integer_t>.stride)
         let result = withUnsafeMutablePointer(to: &info) {
@@ -49,7 +36,7 @@ final class CPUMonitor {
         guard result == KERN_SUCCESS else { return nil }
         // 顺序为 CPU_STATE_USER, CPU_STATE_SYSTEM, CPU_STATE_IDLE, CPU_STATE_NICE
         let t = info.cpu_ticks
-        return Ticks(user: t.0, system: t.1, idle: t.2, nice: t.3)
+        return CPUTicks(user: t.0, system: t.1, idle: t.2, nice: t.3)
     }
 
     private func sampleProcess() -> CPUSample? {

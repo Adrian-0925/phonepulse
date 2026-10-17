@@ -1,4 +1,5 @@
-# 在 GitHub 的云端 Mac 上编译（不签名、不能装真机），用来在 Windows 上确认代码能编译通过。
+# 在 GitHub 的云端 Mac 上编译并运行单元测试（不签名、不能装真机）。
+# 通过只代表"能编译 + 纯逻辑正确"，不代表真机上功能正常。
 name: iOS Build
 
 on:
@@ -15,6 +16,11 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - name: Show toolchain versions
+        run: |
+          xcodebuild -version
+          xcodegen --version
+
       - name: Generate Xcode project
         run: xcodegen generate
 
@@ -24,5 +30,39 @@ jobs:
             -project PhonePulse.xcodeproj \
             -scheme PhonePulse \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             -quiet
+
+      # 确认真的产出了 App 和小组件扩展，并且关键的 Info.plist 配置生效了
+      - name: Verify build products
+        run: |
+          APP=build/Build/Products/Debug-iphonesimulator/PhonePulse.app
+          test -d "$APP" || { echo "::error::没有找到 PhonePulse.app"; exit 1; }
+          test -d "$APP/PlugIns/PhonePulseWidget.appex" || { echo "::error::App 里没有嵌入小组件扩展"; exit 1; }
+          /usr/libexec/PlistBuddy -c "Print :UIBackgroundModes" "$APP/Info.plist"
+          test -f "$APP/PrivacyInfo.xcprivacy" || { echo "::error::隐私清单没有打包进 App"; exit 1; }
+          ls -la "$APP" "$APP/PlugIns"
+
+      - name: Run unit tests
+        run: |
+          # 选一台可用的 iPhone 模拟器（优先最新的 iOS 版本）
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          for runtime in sorted(devices, reverse=True):
+              if "iOS" not in runtime:
+                  continue
+              for device in devices[runtime]:
+                  if device["name"].startswith("iPhone"):
+                      print(device["udid"])
+                      sys.exit(0)
+          sys.exit("没有可用的 iPhone 模拟器")
+          ')
+          echo "使用模拟器 $DEVICE_ID"
+          xcodebuild test \
+            -project PhonePulse.xcodeproj \
+            -scheme PhonePulse \
+            -destination "id=$DEVICE_ID" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO

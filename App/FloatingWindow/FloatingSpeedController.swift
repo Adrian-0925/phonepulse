@@ -18,6 +18,10 @@ final class FloatingSpeedController: NSObject {
     private(set) var isPossible = false
     private(set) var isActive = false
     private(set) var errorMessage: String?
+    /// 诊断用：音频会话是否已配置成功
+    private(set) var audioSessionReady = false
+    /// 诊断用：渲染器进入 failed 状态后被重置的次数
+    private(set) var rendererResetCount = 0
 
     /// 画中画的视频源。必须放进界面里（仪表盘的预览卡片）才能开启画中画。
     let sourceView = SampleBufferView()
@@ -25,7 +29,6 @@ final class FloatingSpeedController: NSObject {
     private let engine: MetricsEngine
     @ObservationIgnored private var pipController: AVPictureInPictureController?
     @ObservationIgnored private var possibleObservation: NSKeyValueObservation?
-    @ObservationIgnored private var audioSessionReady = false
 
     init(engine: MetricsEngine) {
         self.engine = engine
@@ -46,18 +49,22 @@ final class FloatingSpeedController: NSObject {
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try session.setActive(true)
             audioSessionReady = true
+            EventLog.shared.add("音频会话已设为 playback（可与其他声音混合）")
         } catch {
             errorMessage = "音频会话配置失败：\(error.localizedDescription)"
+            EventLog.shared.add(errorMessage ?? "")
         }
     }
 
     func toggle() {
         guard let pipController else { return }
         if pipController.isPictureInPictureActive {
+            EventLog.shared.add("请求关闭画中画")
             pipController.stopPictureInPicture()
         } else {
             prepare()
             errorMessage = nil
+            EventLog.shared.add("请求开启画中画")
             pipController.startPictureInPicture()
         }
     }
@@ -74,7 +81,11 @@ final class FloatingSpeedController: NSObject {
         controller.requiresLinearPlayback = true
         possibleObservation = controller.observe(\.isPictureInPicturePossible, options: [.initial, .new]) { [weak self] _, change in
             let possible = change.newValue ?? false
-            Task { @MainActor [weak self] in self?.isPossible = possible }
+            Task { @MainActor [weak self] in
+                guard let self, self.isPossible != possible else { return }
+                self.isPossible = possible
+                EventLog.shared.add("画中画可开启：\(possible ? "是" : "否")")
+            }
         }
         pipController = controller
     }
@@ -85,6 +96,8 @@ final class FloatingSpeedController: NSObject {
         // App 切后台等情况会让渲染器进入 failed 状态，需要 flush 才能继续显示
         if renderer.status == .failed {
             renderer.flush()
+            rendererResetCount += 1
+            EventLog.shared.add("渲染器失败，已重置（第 \(rendererResetCount) 次）")
         }
         renderer.enqueue(buffer)
     }
@@ -96,6 +109,7 @@ extension FloatingSpeedController: AVPictureInPictureControllerDelegate {
     nonisolated func pictureInPictureControllerDidStartPictureInPicture(_ controller: AVPictureInPictureController) {
         Task { @MainActor in
             self.isActive = true
+            EventLog.shared.add("画中画已开启（App \(UIApplication.shared.applicationState.label)）")
             // 切后台自动弹出的情况：切后台那一刻引擎已经停了，这里重新启动
             self.engine.start()
         }
@@ -104,6 +118,7 @@ extension FloatingSpeedController: AVPictureInPictureControllerDelegate {
     nonisolated func pictureInPictureControllerDidStopPictureInPicture(_ controller: AVPictureInPictureController) {
         Task { @MainActor in
             self.isActive = false
+            EventLog.shared.add("画中画已关闭（App \(UIApplication.shared.applicationState.label)）")
             if UIApplication.shared.applicationState == .background {
                 self.engine.stop()
             }
@@ -114,6 +129,7 @@ extension FloatingSpeedController: AVPictureInPictureControllerDelegate {
         let message = error.localizedDescription
         Task { @MainActor in
             self.errorMessage = "无法开启画中画：\(message)"
+            EventLog.shared.add("画中画开启失败：\(message)")
         }
     }
 

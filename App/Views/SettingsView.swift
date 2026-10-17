@@ -20,6 +20,18 @@ struct SettingsView: View {
                     Text("充电功率是根据电量变化速度和电池容量估算的。电池老化后实际容量会变小，可以填写更准确的值（0 表示使用内置数据）。")
                 }
 
+                Section {
+                    NavigationLink {
+                        DiagnosticsView()
+                    } label: {
+                        Label("真机诊断", systemImage: "stethoscope")
+                    }
+                } header: {
+                    Text("开发者")
+                } footer: {
+                    Text("查看各项原始读数和运行事件，可复制成报告用于排查问题。")
+                }
+
                 Section("关于") {
                     LabeledContent("版本", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "-")
                 }

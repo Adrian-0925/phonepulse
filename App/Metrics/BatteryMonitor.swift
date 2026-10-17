@@ -2,22 +2,20 @@ import UIKit
 
 /// 电量和充电状态来自 UIDevice（公开 API）。
 ///
-/// iOS 没有公开的充电电流/电压接口，所以充电功率是估算的：
-///   功率(W) = 电量变化速度(%/h) × 电池容量(Ah) × 标称电压(3.85V)
-/// 它代表电池的净充入功率，不等于充电头输出功率（中间有转换损耗和手机自身耗电），界面上必须标注"估算"。
-/// 只用"电量发生变化的时间点"来计算，避免电量取整（1% 或 5% 一档）带来的误差，因此需要采样几分钟才有结果。
+/// iOS 没有公开的充电电流/电压接口，充电功率是估算的（算法见 Core/BatteryPowerEstimator.swift），
+/// 它代表电池的净充入功率，不等于充电头输出功率，界面上必须标注"估算"。
 @MainActor
 final class BatteryMonitor {
     private let device = UIDevice.current
-    private let nominalVoltage = 3.85
-    /// 只用最近 15 分钟内的变化点
-    private let window: TimeInterval = 15 * 60
-    /// 首末两个变化点至少相隔这么久才给出估算
-    private let minimumSpan: TimeInterval = 60
+    private var estimator = BatteryPowerEstimator()
+    private var lastRawLevel: Float?
 
-    private var changePoints: [(time: TimeInterval, level: Double)] = []
-    private var lastLevel: Double?
-    private var lastState: BatteryState?
+    /// 诊断用：系统给的原始电量值（-1 表示不可用）
+    private(set) var rawLevel: Float = -1
+    /// 诊断用：本次运行中观察到的最小电量跳变，用来判断系统是按 1% 还是 5% 报告电量
+    private(set) var smallestObservedStep: Double?
+
+    var changePointCount: Int { estimator.changePointCount }
 
     init() {
         device.isBatteryMonitoringEnabled = true
@@ -30,41 +28,25 @@ final class BatteryMonitor {
     }
 
     func sample() -> BatterySample {
-        let level: Double? = device.batteryLevel < 0 ? nil : Double(device.batteryLevel)
+        rawLevel = device.batteryLevel
+        trackStep(rawLevel)
+        let level: Double? = rawLevel < 0 ? nil : Double(rawLevel)
         let state = BatteryState(device.batteryState)
-        record(level: level, state: state)
+        estimator.record(level: level, state: state, at: ProcessInfo.processInfo.systemUptime)
         return BatterySample(
             level: level,
             state: state,
             isLowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled,
-            estimatedPowerWatts: estimatedPowerWatts(state: state),
+            estimatedPowerWatts: estimator.estimatedWatts(capacityMAh: capacityMAh),
             capacityMAh: capacityMAh)
     }
 
-    private func record(level: Double?, state: BatteryState) {
-        let now = ProcessInfo.processInfo.systemUptime
-        // 插拔充电器后旧数据作废
-        if state != lastState {
-            changePoints.removeAll()
-            lastLevel = nil
-            lastState = state
-        }
-        guard let level else { return }
-        if let lastLevel, level != lastLevel {
-            changePoints.append((now, level))
-        }
-        lastLevel = level
-        changePoints.removeAll { now - $0.time > window }
-    }
-
-    private func estimatedPowerWatts(state: BatteryState) -> Double? {
-        guard state == .charging || state == .unplugged,
-              let capacity = capacityMAh,
-              let first = changePoints.first,
-              let last = changePoints.last,
-              last.time - first.time >= minimumSpan else { return nil }
-        let levelPerHour = (last.level - first.level) / (last.time - first.time) * 3600
-        return levelPerHour * Double(capacity) / 1000 * nominalVoltage
+    private func trackStep(_ level: Float) {
+        guard level >= 0 else { return }
+        defer { lastRawLevel = level }
+        guard let lastRawLevel, level != lastRawLevel else { return }
+        let step = Double(abs(level - lastRawLevel))
+        smallestObservedStep = min(smallestObservedStep ?? step, step)
     }
 }
 

@@ -21,6 +21,7 @@ struct PhonePulseApp: App {
         // iOS 不允许 App 在后台持续运行，所以只在前台采样，退到后台时保存快照给小组件。
         // 例外：悬浮窗开着时系统允许 App 继续运行，这时不停止采样。
         .onChange(of: scenePhase, initial: true) { _, phase in
+            EventLog.shared.add("App 进入\(phase.label)")
             switch phase {
             case .active: engine.start()
             case .background where !floating.isActive: engine.stop()

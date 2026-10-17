@@ -22,6 +22,7 @@ targets:
     platform: iOS
     sources:
       - App
+      - Core
       - Shared
     info:
       path: App/Info.plist
@@ -43,7 +44,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.phonepulse
     dependencies:
       - target: PhonePulseWidget
-    scheme: {}
+    scheme:
+      testTargets:
+        - PhonePulseTests
 
   PhonePulseWidget:
     type: app-extension
@@ -65,3 +68,16 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.phonepulse.widget
+
+  # 纯逻辑单元测试：直接编译 Core 和 Shared，不依赖宿主 App，在模拟器上运行
+  PhonePulseTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests
+      - Core
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.phonepulse.tests
+        GENERATE_INFOPLIST_FILE: YES
