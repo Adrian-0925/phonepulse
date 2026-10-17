@@ -2,6 +2,8 @@ import SwiftUI
 
 struct DashboardView: View {
     @Environment(MetricsEngine.self) private var engine
+    @AppStorage("autoOpenChargingScreen") private var autoOpenChargingScreen = false
+    @State private var showsChargingScreen = false
 
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
@@ -10,6 +12,11 @@ struct DashboardView: View {
             ScrollView {
                 if let snapshot = engine.snapshot {
                     VStack(spacing: 12) {
+                        if snapshot.battery.state.isPluggedIn {
+                            ChargingCard(battery: snapshot.battery) {
+                                showsChargingScreen = true
+                            }
+                        }
                         LiveActivityCard()
                         NetworkCard(
                             sample: snapshot.network,
@@ -38,6 +45,56 @@ struct DashboardView: View {
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("设备状态")
+        }
+        .fullScreenCover(isPresented: $showsChargingScreen) {
+            ChargingScreenView()
+                .environment(engine)
+        }
+        // 设置里打开了「插电时自动打开充电大屏」：App 开着时看到插电就进入
+        .onChange(of: ChargeSessionStore.shared.current?.id) { _, newID in
+            guard autoOpenChargingScreen, newID != nil, ChargeSessionStore.shared.current?.startObserved == true else { return }
+            showsChargingScreen = true
+        }
+    }
+}
+
+// MARK: - 充电
+
+private struct ChargingCard: View {
+    let battery: BatterySample
+    let onOpenScreen: () -> Void
+
+    private var store: ChargeSessionStore { .shared }
+
+    var body: some View {
+        MetricCard(title: battery.state == .full ? "已充满" : "正在充电", systemImage: "bolt.fill", tint: Theme.charging) {
+            HStack(alignment: .firstTextBaseline) {
+                MetricValue(text: battery.level.map(Format.percent) ?? "--")
+                Spacer()
+                Text(battery.estimatedPowerWatts.map { "≈ \(Format.watts(abs($0)))（估算）" } ?? "功率估算中…")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            if let session = store.current, session.samples.count >= 2 {
+                ChargeCurveChart(samples: session.samples, tint: Theme.storage, showsAxes: false)
+                    .frame(height: 56)
+            }
+            HStack(spacing: 10) {
+                Button(action: onOpenScreen) {
+                    Label("充电大屏", systemImage: "rectangle.landscape.rotate")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.charging)
+                .foregroundStyle(.black)
+                NavigationLink {
+                    ChargeHistoryView()
+                } label: {
+                    Label("充电记录", systemImage: "list.bullet.rectangle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
         }
     }
 }

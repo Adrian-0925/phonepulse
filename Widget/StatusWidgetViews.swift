@@ -23,11 +23,21 @@ struct StatusWidgetView: View {
 
 /// 一个主指标大字显示，下面两个次要指标，底部是更新时间和刷新按钮
 private struct SmallStatusView: View {
+    /// 系统去掉了小组件背景（待机显示 StandBy 就是这样）
+    @Environment(\.showsWidgetContainerBackground) private var showsBackground
     let entry: StatusEntry
 
     var body: some View {
+        if showsBackground {
+            regularLayout
+        } else {
+            StandByStatusView(entry: entry)
+        }
+    }
+
+    private var regularLayout: some View {
         let hero = entry.hero
-        VStack(alignment: .leading, spacing: 0) {
+        return VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center) {
                 MetricTitle(display: hero)
                 Spacer(minLength: 4)
@@ -54,6 +64,34 @@ private struct SmallStatusView: View {
             }
             UpdatedText(date: entry.date)
         }
+    }
+}
+
+/// 待机显示（StandBy）：手机横放充电时远远看一眼。只留主指标，数字放大；
+/// 夜间模式下系统会把画面染成红色，所以不靠颜色区分信息，只靠白字的明暗对比。
+private struct StandByStatusView: View {
+    let entry: StatusEntry
+
+    var body: some View {
+        let hero = entry.hero
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 5) {
+                Image(systemName: hero.icon)
+                Text(hero.title)
+                    .lineLimit(1)
+            }
+            .font(.system(size: 15, weight: .bold, design: .rounded))
+            .foregroundStyle(hero.tint)
+            Spacer(minLength: 0)
+            ValueText(display: hero, size: 64)
+            Text(hero.detail)
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            UpdatedText(date: entry.date)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 }
 

@@ -62,6 +62,7 @@ final class MetricsEngine {
         cpu.pause()
         persist()
         LiveActivityService.shared.engineDidStop()
+        ChargeSessionStore.shared.save()
     }
 
     private func tick() {
@@ -83,6 +84,7 @@ final class MetricsEngine {
         }
         onTick?(snapshot)
         LiveActivityService.shared.engineDidSample(snapshot)
+        ChargeSessionStore.shared.record(snapshot)
 
         let isBackground = UIApplication.shared.applicationState == .background
         updateDiagnostics(isBackground: isBackground)

@@ -30,8 +30,11 @@ targets:
       properties:
         CFBundleDisplayName: PhonePulse
         UILaunchScreen: {}
+        # 横屏只给充电大屏用，其他页面由 OrientationLock 锁成竖屏
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         # "音频、AirPlay 和画中画"后台模式，悬浮网速窗需要它
         UIBackgroundModes:
           - audio

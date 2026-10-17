@@ -2,6 +2,8 @@ import SwiftUI
 
 @main
 struct PhonePulseApp: App {
+    /// 只用来控制屏幕方向（充电大屏横屏，其他页面竖屏）
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var engine: MetricsEngine
     @State private var floating: FloatingSpeedController
     @Environment(\.scenePhase) private var scenePhase
