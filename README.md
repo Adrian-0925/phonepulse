@@ -114,9 +114,30 @@ open PhonePulse.xcodeproj
 
 然后在 Xcode 里选择你的 Team，连上 iPhone 运行。很多指标（电量、CPU、网卡流量）在模拟器上没有意义，必须用真机测。
 
-装真机 / 上架需要 Apple Developer 账号（99 美元/年），小组件读主 App 数据用的 App Group 也需要它。
+上架和 TestFlight 需要付费的 Apple Developer 账号（国区 688 元/年），小组件读主 App 数据用的 App Group 也需要它。
 
-**改名**：全局替换 `PhonePulse`、`com.example.phonepulse`、`group.com.example.phonepulse`（`project.yml` 和 `Shared/SharedStore.swift`）。
+### 免费真机安装（不需要 Mac，也不需要付费账号）
+
+云端打出未签名的安装包，再在 Windows 上用 [Sideloadly](https://sideloadly.io) 配合免费 Apple ID 签名安装。适合真机验证和自己日常使用，**不能用来上架**。
+
+**准备（只做一次）**
+1. **专门注册一个新的 Apple ID 用来侧载，不要用主账号**：Sideloadly 是第三方闭源工具，需要输入账号密码。
+2. 从 Apple 官网下载安装 Windows 版 iTunes 和 iCloud（Sideloadly 要求官网版本，不要用 Microsoft Store 版）。
+3. 只从 sideloadly.io 官网下载安装 Sideloadly。
+4. iPhone 用数据线连电脑，手机上点「信任此电脑」。
+
+**每次安装**
+1. 在 GitHub 仓库打开 Actions → 左侧选「Sideload IPA」→「Run workflow」。几分钟后在这次运行页面底部下载安装包（下载的是 zip，解压后得到 `PhonePulse-unsigned.ipa`）。
+2. 打开 Sideloadly，选择这个 ipa，填入专用 Apple ID，点 Start，按提示输入密码和验证码。
+3. 第一次安装后，在 iPhone 上：设置 → 通用 → VPN 与设备管理 → 信任这个 Apple ID；再打开 设置 → 隐私与安全性 → 开发者模式（需要重启）。
+
+**限制**
+- 7 天后 App 会无法打开，需要用 Sideloadly 重新安装一次。
+- 免费账号最多同时装 3 个侧载 App，每 7 天最多注册 10 个 App ID（本 App 加小组件占 2 个）。
+- 免费账号不支持 App Group，小组件可能读不到数据。这不影响悬浮窗、网速、CPU、电池等 P0/P1 验证。
+- 如果提示 bundle ID 不可用，在 Sideloadly 高级选项里勾选修改 bundle ID。
+
+**改名**：全局替换 `PhonePulse`、`io.github.adrian-0925.phonepulse`、`group.io.github.adrian-0925.phonepulse`（`project.yml` 和 `Shared/SharedStore.swift`）。包名在第一次上传 App Store 之前都可以改，上传后就固定了。
 
 ## 上架注意事项
 
@@ -131,7 +152,9 @@ open PhonePulse.xcodeproj
 - [x] **Phase 1 框架**：采集层、仪表盘、小组件、基础测速
 - [x] **画中画悬浮网速窗原型**（待真机验证，见上方清单）
 - [x] **验证基础设施**：核心计算的单元测试、CI 检查产物、真机诊断页（CI 验收通过：189569d，编译和产物检查成功，22 项测试 0 失败）
+- [ ] **真机安装**：免费侧载（云端未签名 ipa + Sideloadly + 专用 Apple ID）
 - [ ] **真机验证**：CPU 整机数据能否读取；电量是 1% 还是 5% 步进；悬浮窗后台是否持续刷新；功率估算和 USB 电流表对比的误差
+- [ ] **决定是否开通付费账号**：P0 验证通过、确定要上架时再开通，再搭 TestFlight 发布流程
 - [ ] **Phase 2 差异化**：悬浮窗样式自定义（显示内容、颜色、大小）、灵动岛实时活动、每日/每月流量统计、充电曲线记录
 - [ ] **Phase 3 变现**：StoreKit 2 内购（基础功能免费，悬浮窗 / 历史曲线 / 更多小组件样式付费）
 - [ ] **上架准备**：App 图标、多语言、截图、隐私政策页面

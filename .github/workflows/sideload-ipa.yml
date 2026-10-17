@@ -1,0 +1,50 @@
+# 手动触发：打出未签名的真机安装包（.ipa），再在 Windows 上用 Sideloadly 等工具配合免费 Apple ID 装到 iPhone。
+# 不需要 Mac，也不需要付费开发者账号。步骤见 README「免费真机安装」。
+# 只在需要新安装包时手动运行（Actions → Sideload IPA → Run workflow），节省 macOS 运行时长。
+name: Sideload IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      # Release 配置更接近正式版的性能和耗电表现
+      - name: Build for iPhone (unsigned, Release)
+        run: |
+          xcodebuild build \
+            -project PhonePulse.xcodeproj \
+            -scheme PhonePulse \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            -quiet
+
+      - name: Package IPA
+        run: |
+          APP=build/Build/Products/Release-iphoneos/PhonePulse.app
+          test -d "$APP" || { echo "::error::没有找到 PhonePulse.app"; exit 1; }
+          test -d "$APP/PlugIns/PhonePulseWidget.appex" || { echo "::error::App 里没有嵌入小组件扩展"; exit 1; }
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :UIBackgroundModes" "$APP/Info.plist"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry PhonePulse-unsigned.ipa Payload
+          ls -la PhonePulse-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhonePulse-unsigned-${{ github.run_number }}
+          path: PhonePulse-unsigned.ipa
+          retention-days: 7

@@ -3,7 +3,7 @@
 name: PhonePulse
 
 options:
-  bundleIdPrefix: com.example
+  bundleIdPrefix: io.github.adrian-0925
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -38,10 +38,10 @@ targets:
       path: App/PhonePulse.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.com.example.phonepulse
+          - group.io.github.adrian-0925.phonepulse
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.phonepulse
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.adrian-0925.phonepulse
     dependencies:
       - target: PhonePulseWidget
     scheme:
@@ -64,10 +64,10 @@ targets:
       path: Widget/PhonePulseWidget.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.com.example.phonepulse
+          - group.io.github.adrian-0925.phonepulse
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.phonepulse.widget
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.adrian-0925.phonepulse.widget
 
   # 纯逻辑单元测试：直接编译 Core 和 Shared，不依赖宿主 App，在模拟器上运行
   PhonePulseTests:
@@ -79,5 +79,5 @@ targets:
       - Shared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.phonepulse.tests
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.adrian-0925.phonepulse.tests
         GENERATE_INFOPLIST_FILE: YES
