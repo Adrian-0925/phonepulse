@@ -164,6 +164,15 @@ final class PowerMeasurementTests: XCTestCase {
         XCTAssertNotEqual(estimator.status()?.phase, .slowed)
     }
 
+    func testFloatingPointNoiseIsNotAChange() {
+        var estimator = BatteryPowerEstimator()
+        estimator.record(level: 0.70 + 10 * 0.01, state: .charging, at: 0)
+        estimator.record(level: 0.80, state: .charging, at: 1)
+        estimator.record(level: Double(Float(0.80)), state: .charging, at: 2)
+        XCTAssertEqual(estimator.changePointCount, 0)
+        XCTAssertEqual(estimator.status()?.changes, 0)
+    }
+
     func testRecentWindowFollowsSpeedChange() throws {
         var estimator = BatteryPowerEstimator()
         // 前 5 分钟每 20 秒 1%，之后每 40 秒 1%

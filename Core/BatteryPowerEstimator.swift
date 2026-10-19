@@ -36,6 +36,8 @@ struct PowerStatus: Codable, Equatable {
 /// 结果是电池的净充入功率，不等于充电头输出功率。纯计算，时间由调用方传入（秒，timeIntervalSinceReferenceDate），方便单元测试。
 struct BatteryPowerEstimator {
     static let nominalVoltage = 3.85
+    /// 电量差别小于这个值不算变化
+    static let minimumChange = 0.001
 
     /// 只用最近这段时间内的变化点
     var window: TimeInterval = 15 * 60
@@ -89,7 +91,7 @@ struct BatteryPowerEstimator {
             lastLevel = nil
             if time - pausedAt > resumeLimit || Self.reversed(from: previousLevel, to: level, state: state) {
                 startRound(at: time)
-            } else if let level, let previousLevel, level != previousLevel {
+            } else if let level, let previousLevel, abs(level - previousLevel) >= Self.minimumChange {
                 // 暂停期间电量变过，但不知道是哪一刻：回来后的第一个读数只当起点，"多久没变"从现在算起
                 quietSince = time
             }
@@ -98,7 +100,8 @@ struct BatteryPowerEstimator {
         let gap = lastTime.map { time - $0 } ?? 0
         lastTime = time
         guard let level else { return }
-        if let lastLevel, level != lastLevel {
+        // 系统电量至少 1% 一档；小于 0.1% 的差别只是浮点误差，不算变化
+        if let lastLevel, abs(level - lastLevel) >= Self.minimumChange {
             let point = ChangePoint(time: time, level: level, gap: gap)
             if let lastChange {
                 recentIntervals.append(time - lastChange.time)
