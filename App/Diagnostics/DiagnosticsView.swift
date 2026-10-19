@@ -10,6 +10,11 @@ struct DiagnosticsView: View {
 
     private var diagnostics: EngineDiagnostics { engine.diagnostics }
     private var log: EventLog { EventLog.shared }
+    private var liveActivity: LiveActivityService { .shared }
+
+    private var updateDurationText: String {
+        liveActivity.lastUpdateDuration.map { String(format: "%.2f 秒", $0) } ?? "--"
+    }
 
     var body: some View {
         List {
@@ -61,12 +66,26 @@ struct DiagnosticsView: View {
                 LabeledContent("后台采样", value: "\(diagnostics.backgroundTickCount) 次")
                 LabeledContent("后台最大间隔", value: backgroundGapText)
                 LabeledContent("渲染器重置", value: "\(floating.rendererResetCount) 次")
+                LabeledContent("离开 App 时显示", value: floating.showsOutsideApp ? "开" : "关")
                 Text(backgroundVerdict)
                     .font(.subheadline)
             } header: {
                 Text("悬浮窗")
             } footer: {
                 Text("开启悬浮窗后切到其他 App 待几分钟再回来看。后台最大间隔接近 1 秒说明后台一直在刷新；锁屏期间出现中断属于正常。")
+            }
+
+            Section {
+                LabeledContent("运行中", value: yesNo(liveActivity.isRunning))
+                LabeledContent("重点显示", value: liveActivity.focus.label)
+                LabeledContent("最近 60 秒推送", value: "\(liveActivity.pushesInLastMinute) 次")
+                LabeledContent("本次共推送", value: "\(liveActivity.pushCount) 次")
+                LabeledContent("最近一次推送", value: liveActivity.lastPushDate.map { $0.formatted(date: .omitted, time: .standard) } ?? "--")
+                LabeledContent("系统处理一次更新", value: updateDurationText)
+            } header: {
+                Text("灵动岛")
+            } footer: {
+                Text("网速一直在变时，最近 60 秒推送应接近 60 次。系统处理一次更新超过 1 秒，说明延迟发生在系统调度，而不是 App 采集。")
             }
 
             Section {
@@ -131,7 +150,8 @@ struct DiagnosticsView: View {
         lines.append("【电池】原始值：\(rawBatteryText)，状态：\(batteryState)，最小跳变：\(batteryStepText)，变化点：\(diagnostics.batteryChangePoints) 个，功率估算：\(powerText)")
         lines.append("【温度】\(thermal)，低电量模式：\(lowPower)")
         lines.append("【悬浮窗】支持：\(yesNo(floating.isSupported))，可开启：\(yesNo(floating.isPossible))，已开启：\(yesNo(floating.isActive))，音频会话：\(audio)")
-        lines.append("  后台采样：\(diagnostics.backgroundTickCount) 次，后台最大间隔：\(backgroundGapText)，渲染器重置：\(floating.rendererResetCount) 次")
+        lines.append("  后台采样：\(diagnostics.backgroundTickCount) 次，后台最大间隔：\(backgroundGapText)，渲染器重置：\(floating.rendererResetCount) 次，离开 App 时显示：\(floating.showsOutsideApp ? "开" : "关")")
+        lines.append("【灵动岛】运行中：\(yesNo(liveActivity.isRunning))，重点：\(liveActivity.focus.label)，最近 60 秒推送：\(liveActivity.pushesInLastMinute) 次，共推送：\(liveActivity.pushCount) 次，系统处理一次更新：\(updateDurationText)")
         lines.append("  结论：\(backgroundVerdict)")
         lines.append("【网卡原始计数】")
         for reading in trafficInterfaces {

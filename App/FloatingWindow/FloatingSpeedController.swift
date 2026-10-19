@@ -22,6 +22,10 @@ final class FloatingSpeedController: NSObject {
     private(set) var audioSessionReady = false
     /// 诊断用：渲染器进入 failed 状态后被重置的次数
     private(set) var rendererResetCount = 0
+    /// 离开 App（回到桌面或切到其他 App，系统不区分这两种情况）时是否显示悬浮窗
+    private(set) var showsOutsideApp = UserDefaults.standard.object(forKey: FloatingSpeedController.showsOutsideAppKey) as? Bool ?? true
+
+    static let showsOutsideAppKey = "floatingShowsOutsideApp"
 
     /// 画中画的视频源。必须放进界面里（仪表盘的预览卡片）才能开启画中画。
     let sourceView = SampleBufferView()
@@ -56,6 +60,22 @@ final class FloatingSpeedController: NSObject {
         }
     }
 
+    /// 关闭后：离开 App 时不自动弹出悬浮窗，已经开着的也会收起。
+    /// 注意 App 靠悬浮窗才能在后台继续运行，收起后 App 会被系统暂停，灵动岛停在最后的数据。
+    func setShowsOutsideApp(_ value: Bool) {
+        showsOutsideApp = value
+        UserDefaults.standard.set(value, forKey: Self.showsOutsideAppKey)
+        pipController?.canStartPictureInPictureAutomaticallyFromInline = value
+        EventLog.shared.add("离开 App 时显示悬浮窗：\(value ? "开" : "关")")
+    }
+
+    /// App 进入后台时调用：按设置决定是否收起悬浮窗
+    func appDidEnterBackground() {
+        guard !showsOutsideApp, let pipController, pipController.isPictureInPictureActive else { return }
+        EventLog.shared.add("离开 App，按设置收起悬浮窗")
+        pipController.stopPictureInPicture()
+    }
+
     func toggle() {
         guard let pipController else { return }
         if pipController.isPictureInPictureActive {
@@ -76,8 +96,8 @@ final class FloatingSpeedController: NSObject {
             playbackDelegate: self)
         let controller = AVPictureInPictureController(contentSource: source)
         controller.delegate = self
-        // 在 App 里开着预览时切到后台，自动弹出悬浮窗（需用户在系统设置里开启"自动开启画中画"）
-        controller.canStartPictureInPictureAutomaticallyFromInline = true
+        // 在 App 里开着预览时切到后台，自动弹出悬浮窗（需用户在系统设置里开启"自动开启画中画"，且本 App 的设置允许）
+        controller.canStartPictureInPictureAutomaticallyFromInline = showsOutsideApp
         controller.requiresLinearPlayback = true
         possibleObservation = controller.observe(\.isPictureInPicturePossible, options: [.initial, .new]) { [weak self] _, change in
             let possible = change.newValue ?? false

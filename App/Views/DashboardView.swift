@@ -202,6 +202,17 @@ private struct FloatingWindowCard: View {
             Text(caption)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            Divider()
+            Toggle(isOn: Binding(get: { floating.showsOutsideApp }, set: { floating.setShowsOutsideApp($0) })) {
+                Text("离开 App 时显示悬浮窗")
+                    .font(.subheadline)
+            }
+            .tint(.indigo)
+            Text(floating.showsOutsideApp
+                 ? "回到桌面或切到其他 App 时继续显示。App 因此能在后台运行，灵动岛也会保持实时。不想挡住画面，可以把悬浮窗拖到屏幕边缘收起。"
+                 : "离开 App 时悬浮窗会收起。App 随后会被系统暂停，灵动岛停在最后一次的数据（显示「已暂停」，充满倒计时仍会走）。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .onAppear { floating.prepare() }
     }

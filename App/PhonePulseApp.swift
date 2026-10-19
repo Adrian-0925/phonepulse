@@ -21,13 +21,20 @@ struct PhonePulseApp: App {
                 .environment(floating)
         }
         // iOS 不允许 App 在后台持续运行，所以只在前台采样，退到后台时保存快照给小组件。
-        // 例外：悬浮窗开着时系统允许 App 继续运行，这时不停止采样。
+        // 例外：悬浮窗开着时系统允许 App 继续运行，这时不停止采样（灵动岛也就能继续更新）。
         .onChange(of: scenePhase, initial: true) { _, phase in
             EventLog.shared.add("App 进入\(phase.label)")
             switch phase {
-            case .active: engine.start()
-            case .background where !floating.isActive: engine.stop()
-            default: break
+            case .active:
+                engine.start()
+            case .background:
+                // 设置为「离开 App 时不显示悬浮窗」时先收起；收起后的停止采样由悬浮窗的关闭回调处理
+                floating.appDidEnterBackground()
+                if !floating.isActive {
+                    engine.stop()
+                }
+            default:
+                break
             }
         }
     }

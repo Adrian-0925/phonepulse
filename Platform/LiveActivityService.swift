@@ -2,26 +2,39 @@
 import ActivityKit
 import Foundation
 import Observation
+import UIKit
 
 /// 管理灵动岛 / 锁屏实时活动。只编译进 App（扩展里不能开启实时活动）。
 ///
-/// 刷新规则（iOS 的限制）：
-/// - App 在前台或悬浮窗开着时，跟随采样实时更新（网速每 2 秒，其他每 10 秒，电量变化时立即更新）
-/// - App 被系统挂起后无法更新，显示最后一次的数据并标明更新时间；充满倒计时和进度条由系统自己走动
-/// - 远程推送更新需要付费账号和服务器，而且服务器拿不到手机状态，所以不采用
-/// - 系统最多显示 8 小时，之后自动结束
+/// 刷新规则：
+/// - 数据和悬浮窗来自同一份每秒采样（MetricsEngine）。只要显示的内容变了就推送，所以和悬浮窗一样最快每秒更新一次；
+///   内容没变时每 15 秒推一次，让「更新时间」保持最新。实际显示还取决于系统，iOS 可能会合并过于频繁的更新。
+/// - App 在前台，或悬浮窗开着（App 因此在后台继续运行）时才能更新。
+///   App 被系统挂起后无法更新，显示最后一次的数据并标「已暂停」；充满倒计时和进度条由系统自己走动。
+/// - 远程推送更新需要付费账号和服务器，而且服务器拿不到手机状态，所以不采用。
+/// - 系统最多显示 8 小时，之后自动结束。
 @MainActor
 @Observable
 final class LiveActivityService {
     static let shared = LiveActivityService()
 
+    /// 内容没变时多久推一次
+    private static let heartbeat: TimeInterval = 15
+
     private(set) var isRunning = false
     private(set) var focus: LiveActivityFocus = .auto
     private(set) var lastError: String?
 
+    /// 诊断用：本次运行推送了多少次、最近一次推送的时间、系统处理一次更新花了多久
+    private(set) var pushCount = 0
+    private(set) var lastPushDate: Date?
+    private(set) var lastUpdateDuration: TimeInterval?
+
     @ObservationIgnored private var latestState: StatusActivityAttributes.ContentState?
     @ObservationIgnored private var lastPushedState: StatusActivityAttributes.ContentState?
-    @ObservationIgnored private var lastPushDate: Date = .distantPast
+    @ObservationIgnored private var recentPushes: [Date] = []
+    @ObservationIgnored private var queuedContent: ActivityContent<StatusActivityAttributes.ContentState>?
+    @ObservationIgnored private var updateTask: Task<Void, Never>?
 
     private init() {
         let saved = SharedStore.defaults.string(forKey: SharedStore.Key.liveActivityFocus) ?? ""
@@ -31,6 +44,11 @@ final class LiveActivityService {
 
     var areActivitiesEnabled: Bool {
         ActivityAuthorizationInfo().areActivitiesEnabled
+    }
+
+    /// 诊断用：最近 60 秒推送了几次
+    var pushesInLastMinute: Int {
+        recentPushes.filter { Date.now.timeIntervalSince($0) <= 60 }.count
     }
 
     func toggle() async throws {
@@ -56,7 +74,7 @@ final class LiveActivityService {
             isRunning = true
             lastError = nil
             lastPushedState = state
-            lastPushDate = .now
+            recordPush()
             EventLog.shared.add("灵动岛已开启（\(focus.label)）")
         } catch {
             lastError = error.localizedDescription
@@ -85,7 +103,7 @@ final class LiveActivityService {
         }
     }
 
-    /// App 每次采样后调用
+    /// App 每次采样后调用（每秒一次，和悬浮窗同一份数据）
     func engineDidSample(_ snapshot: MetricsSnapshot) {
         let state = StatusActivityAttributes.ContentState(snapshot: snapshot, focus: focus, isLive: true)
         latestState = state
@@ -96,34 +114,54 @@ final class LiveActivityService {
         }
         guard running else { return }
 
-        let interval: TimeInterval = state.effectiveFocus == .network ? 2 : 10
-        let batteryChanged = state.batteryLevel != lastPushedState?.batteryLevel
-            || state.batteryState != lastPushedState?.batteryState
-        if batteryChanged || Date.now.timeIntervalSince(lastPushDate) >= interval {
+        let contentChanged = state.displaySignature != lastPushedState?.displaySignature
+        let heartbeatDue = Date.now.timeIntervalSince(lastPushDate ?? .distantPast) >= Self.heartbeat
+        if contentChanged || heartbeatDue {
             push(state)
         }
     }
 
-    /// App 停止采样时调用：标记为"已暂停"，界面上会提示数据不再实时
+    /// App 停止采样时调用：标记为「已暂停」。App 马上会被系统挂起，所以申请一点后台时间确保这次更新送达
     func engineDidStop() {
         guard var state = latestState, !Activity<StatusActivityAttributes>.activities.isEmpty else { return }
         state.isLive = false
         latestState = state
+        let backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "LiveActivityPause")
         push(state)
-    }
-
-    private func push(_ state: StatusActivityAttributes.ContentState) {
-        lastPushedState = state
-        lastPushDate = .now
-        let content = ActivityContent(state: state, staleDate: Self.staleDate())
         Task {
-            for activity in Activity<StatusActivityAttributes>.activities {
-                await activity.update(content)
-            }
+            await self.updateTask?.value
+            UIApplication.shared.endBackgroundTask(backgroundTask)
         }
     }
 
-    /// 超过这个时间没更新，系统会把内容标记为过期（界面上显示"可能已过期"）
+    /// 推送一次更新。上一次还没处理完时只保留最新的一份，处理完马上接着推，不会越积越多
+    private func push(_ state: StatusActivityAttributes.ContentState) {
+        lastPushedState = state
+        recordPush()
+        queuedContent = ActivityContent(state: state, staleDate: Self.staleDate())
+        guard updateTask == nil else { return }
+        updateTask = Task { [weak self] in
+            while let self, let content = self.queuedContent {
+                self.queuedContent = nil
+                let started = Date.now
+                for activity in Activity<StatusActivityAttributes>.activities {
+                    await activity.update(content)
+                }
+                self.lastUpdateDuration = Date.now.timeIntervalSince(started)
+            }
+            self?.updateTask = nil
+        }
+    }
+
+    private func recordPush() {
+        let now = Date.now
+        lastPushDate = now
+        pushCount += 1
+        recentPushes.append(now)
+        recentPushes.removeAll { now.timeIntervalSince($0) > 60 }
+    }
+
+    /// 超过这个时间没更新，系统会把内容标记为过期（界面上显示「可能已过期」）
     private static func staleDate() -> Date {
         Date.now.addingTimeInterval(5 * 60)
     }

@@ -60,6 +60,23 @@ struct StatusActivityAttributes: ActivityAttributes {
 }
 
 extension StatusActivityAttributes.ContentState {
+    /// 界面上实际显示出来的内容（按显示精度取整）。和上次推送的一样就不用再推，省电也避免被系统限流
+    var displaySignature: [String] {
+        [
+            focus.rawValue,
+            batteryText,
+            batteryState.rawValue,
+            powerWatts.map { String(format: "%.1f", $0) } ?? "-",
+            levelPerHour.map { String(format: "%.2f", $0) } ?? "-",
+            Format.speed(downloadBytesPerSecond),
+            Format.speed(uploadBytesPerSecond),
+            cpuUsage.map { String(format: "%.0f", $0 * 100) } ?? "-",
+            thermal.rawValue,
+            fullDate.map { String(Int($0.timeIntervalSinceReferenceDate / 60)) } ?? "-",
+            isLive ? "live" : "paused",
+        ]
+    }
+
     /// 由 App 的一次完整采样生成
     init(snapshot: MetricsSnapshot, focus: LiveActivityFocus, isLive: Bool) {
         let battery = snapshot.battery

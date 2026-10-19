@@ -16,8 +16,10 @@ struct EngineDiagnostics {
     var interfaces: [InterfaceReading] = []
 }
 
-/// 采样调度中心：App 在前台时每秒采一次所有指标，保留最近 60 秒的曲线，
-/// 并定期把最新快照写进 App Group 供小组件读取。
+/// 采样调度中心，也是唯一的数据源：每秒采一次所有指标，同一份结果分发给所有显示位置（见 distribute）。
+///
+/// 只要 App 在运行就会采样：在前台时，或者悬浮窗开着（系统因此让 App 在后台继续运行）时。
+/// App 被系统挂起后无法采样，这是 iOS 的限制，见 README「后台运行与刷新」。
 @MainActor
 @Observable
 final class MetricsEngine {
@@ -29,7 +31,7 @@ final class MetricsEngine {
     private(set) var cpuHistory: [Double] = []
     private(set) var diagnostics = EngineDiagnostics()
 
-    /// 每次采样后回调，悬浮窗用它刷新画面
+    /// 悬浮窗的刷新回调（由 FloatingSpeedController 设置）
     @ObservationIgnored var onTick: ((MetricsSnapshot) -> Void)?
 
     private let network = NetworkMonitor()
@@ -82,9 +84,7 @@ final class MetricsEngine {
         if let cpuSample {
             Self.append(cpuSample.usage, to: &cpuHistory, limit: historyLength)
         }
-        onTick?(snapshot)
-        LiveActivityService.shared.engineDidSample(snapshot)
-        ChargeSessionStore.shared.record(snapshot)
+        distribute(snapshot)
 
         let isBackground = UIApplication.shared.applicationState == .background
         updateDiagnostics(isBackground: isBackground)
@@ -94,6 +94,17 @@ final class MetricsEngine {
             // 后台（悬浮窗开着）时刷新小组件会消耗系统给的刷新额度，只保存数据
             persist(reloadWidgets: !isBackground)
         }
+    }
+
+    /// 同一份采样结果分发给所有显示位置，各处显示的是同一秒的数据：
+    /// - App 页面：读 snapshot 属性（SwiftUI 自动刷新）
+    /// - 悬浮窗：每秒重画一帧
+    /// - 灵动岛：显示内容有变化就推送
+    /// - 充电记录：约每分钟记一个点
+    private func distribute(_ snapshot: MetricsSnapshot) {
+        onTick?(snapshot)
+        LiveActivityService.shared.engineDidSample(snapshot)
+        ChargeSessionStore.shared.record(snapshot)
     }
 
     private func updateDiagnostics(isBackground: Bool) {
