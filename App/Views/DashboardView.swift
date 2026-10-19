@@ -67,17 +67,41 @@ private struct ChargingCard: View {
     private var store: ChargeSessionStore { .shared }
 
     var body: some View {
+        let readout = PowerReadout(battery: battery, now: .now, context: .charging)
         MetricCard(title: battery.state == .full ? "已充满" : "正在充电", systemImage: "bolt.fill", tint: Theme.charging) {
             HStack(alignment: .firstTextBaseline) {
                 MetricValue(text: battery.level.map(Format.batteryPercent) ?? "--")
                 Spacer()
-                Text(battery.estimatedPowerWatts.map { "≈ \(Format.watts(abs($0)))（估算）" } ?? "功率估算中…")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                if battery.state != .full {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(readout.title)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(readout.value)
+                            .font(.title3.monospacedDigit().weight(.semibold))
+                            .contentTransition(.numericText())
+                    }
+                }
+            }
+            if battery.state != .full {
+                HStack(spacing: 6) {
+                    PowerStatusBadge(readout: readout)
+                    Text(readout.detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
             }
             if let session = store.current, session.samples.count >= 2 {
                 ChargeCurveChart(samples: session.samples, tint: Theme.storage, showsAxes: false)
                     .frame(height: 56)
+            }
+            if let session = store.current {
+                HStack(spacing: 8) {
+                    AccessoryPicker(sessionID: session.id, compact: true)
+                    Spacer(minLength: 0)
+                    LastAccessorySuggestion(sessionID: session.id)
+                }
             }
             HStack(spacing: 10) {
                 Button(action: onOpenScreen) {
@@ -168,6 +192,7 @@ private struct LiveActivityCard: View {
             Text(caption)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            ControlCenterTip()
         }
     }
 
@@ -287,17 +312,14 @@ private struct BatteryCard: View {
     }
 
     private var powerText: String {
-        switch (sample.state, sample.estimatedPowerWatts) {
-        case (.charging, let watts?) where watts > 0:
-            "充入 ≈ \(Format.watts(watts))（估算）"
-        case (.unplugged, let watts?) where watts < 0:
-            "耗电 ≈ \(Format.watts(-watts))（估算）"
-        case (.charging, _), (.unplugged, _):
-            sample.capacityMAh == nil ? "未收录此机型容量，可在设置中填写" : "功率估算中，需要几分钟…"
-        case (.full, _):
-            "已充满"
-        case (.unknown, _):
-            "当前设备不支持"
+        let readout = PowerReadout(battery: sample, now: .now)
+        switch readout.status {
+        case .noData: return "当前设备不支持"
+        case .full: return "已充满"
+        case .collecting: return "\(readout.title) · 正在采集"
+        case .preliminary, .stable, .slowed, .disconnected:
+            let suffix = sample.capacityMAh == nil ? "（未收录容量）" : ""
+            return "\(readout.title) \(readout.value) · \(readout.label)\(suffix)"
         }
     }
 }

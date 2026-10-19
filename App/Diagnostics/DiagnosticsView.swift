@@ -51,11 +51,21 @@ struct DiagnosticsView: View {
                 LabeledContent("充电状态", value: engine.snapshot?.battery.state.label ?? "--")
                 LabeledContent("最小电量跳变", value: batteryStepText)
                 LabeledContent("电量变化点", value: "\(diagnostics.batteryChangePoints) 个")
+                LabeledContent("测定阶段", value: phaseText)
+                LabeledContent("最近变化间隔", value: intervalsText)
                 LabeledContent("功率估算", value: powerText)
             } header: {
                 Text("电池")
             } footer: {
-                Text("最小跳变是 1% 表示系统按 1% 报告电量；是 5% 的话功率估算需要更久。充电或放电几分钟后才会有数据。")
+                Text("最小跳变是 1% 表示系统按 1% 报告电量；是 5% 的话功率估算需要更久。充电速度不变时，变化间隔应该差不多；忽大忽小说明系统更新电量有延迟。")
+            }
+
+            Section {
+                LabeledContent("App Group", value: SharedStore.isAppGroupAvailable ? "可用" : "不可用")
+            } header: {
+                Text("App 与小组件共享")
+            } footer: {
+                Text("不可用时（免费账号侧载通常如此），小组件和控制中心读不到 App 里的设置和灵动岛状态，控制中心按钮只能显示通用名称。")
             }
 
             Section {
@@ -148,6 +158,8 @@ struct DiagnosticsView: View {
         lines.append("【网络】连接：\(connection)，下载 \(download)，上传 \(upload)")
         lines.append("【CPU】数据来源：\(cpuSourceText)，当前占用：\(cpuUsage)")
         lines.append("【电池】原始值：\(rawBatteryText)，状态：\(batteryState)，最小跳变：\(batteryStepText)，变化点：\(diagnostics.batteryChangePoints) 个，功率估算：\(powerText)")
+        lines.append("  测定阶段：\(phaseText)，最近变化间隔：\(intervalsText)")
+        lines.append("【共享】App Group：\(SharedStore.isAppGroupAvailable ? "可用" : "不可用")")
         lines.append("【温度】\(thermal)，低电量模式：\(lowPower)")
         lines.append("【悬浮窗】支持：\(yesNo(floating.isSupported))，可开启：\(yesNo(floating.isPossible))，已开启：\(yesNo(floating.isActive))，音频会话：\(audio)")
         lines.append("  后台采样：\(diagnostics.backgroundTickCount) 次，后台最大间隔：\(backgroundGapText)，渲染器重置：\(floating.rendererResetCount) 次，离开 App 时显示：\(floating.showsOutsideApp ? "开" : "关")")
@@ -185,6 +197,23 @@ struct DiagnosticsView: View {
         guard let watts = battery.estimatedPowerWatts else { return "数据不足" }
         let capacity = battery.capacityMAh.map { "\($0) mAh" } ?? "未知"
         return "\(Format.watts(watts))（估算，容量 \(capacity)）"
+    }
+
+    private var phaseText: String {
+        guard let battery = engine.snapshot?.battery else { return "--" }
+        let readout = PowerReadout(battery: battery, now: .now)
+        guard let status = battery.power else { return readout.label }
+        var text = "\(readout.label)，本轮 \(status.changes) 次变化，开始于 \(status.roundStart.formatted(date: .omitted, time: .standard))"
+        if let error = status.timingError {
+            text += String(format: "，计时误差 ±%.1f%%", error * 100)
+        }
+        return text
+    }
+
+    private var intervalsText: String {
+        let intervals = diagnostics.batteryChangeIntervals
+        guard !intervals.isEmpty else { return "--" }
+        return intervals.map { String(format: "%.0f", $0) }.joined(separator: " / ") + " 秒"
     }
 
     private var backgroundGapText: String {

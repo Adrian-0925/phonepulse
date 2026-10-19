@@ -27,15 +27,32 @@ struct BatteryDetailView: View {
             }
 
             Section {
-                SourceRow(title: speedTitle, value: battery?.levelPerHour.map(Format.levelRate) ?? "估算中", source: .estimated)
-                SourceRow(title: "电池功率", value: powerText, source: .estimated)
-                if let eta = timeToFullText {
-                    SourceRow(title: "预计充满", value: eta, source: .estimated)
+                if let battery {
+                    let readout = PowerReadout(battery: battery, now: .now)
+                    LabeledContent("测定状态") {
+                        PowerStatusBadge(readout: readout)
+                    }
+                    SourceRow(title: speedTitle, value: readout.hasResult ? (battery.levelPerHour.map(Format.levelRate) ?? "--") : "--", source: .estimated)
+                    SourceRow(title: readout.title, value: readout.value, source: .estimated)
+                    if let eta = timeToFullText {
+                        SourceRow(title: "预计充满", value: eta, source: .estimated)
+                    }
+                    Text(readout.detail)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    DisclosureGroup("怎么测的、准不准") {
+                        Text(methodText(battery))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("正在读取电池数据…")
+                        .foregroundStyle(.secondary)
                 }
             } header: {
                 Text("充电 / 耗电")
             } footer: {
-                Text("iOS 不开放充电电压和电流，这里根据电量变化速度推算，需要 App 保持打开几分钟。功率指电池实际充入（或消耗）的功率，比充电头标称功率低是正常的；电量到 80% 左右时系统可能放慢充电。")
+                Text("功率是根据电量变化推算的电池实际充入（或消耗）功率，比充电头标称功率低是正常的。插拔充电器后会重新测定。")
             }
 
             Section {
@@ -81,9 +98,22 @@ struct BatteryDetailView: View {
         return rate >= 0 ? "充电速度" : "耗电速度"
     }
 
-    private var powerText: String {
-        guard let watts = battery?.estimatedPowerWatts else { return "估算中" }
-        return "≈ \(Format.watts(abs(watts)))（\(watts >= 0 ? "充入" : "消耗")）"
+    /// 专业解释：数据来源、计算方法、误差来源，以及本次实际看到的电量精度和变化间隔
+    private func methodText(_ battery: BatterySample) -> String {
+        var lines: [String] = []
+        lines.append("来源：iOS 只给 App 电量百分比和是否在充电（实测），不开放电压、电流，所以功率是估算值。")
+        lines.append("计算：只用「电量刚变化的那一刻」。两次变化之间正好涨（或掉）一档，用这一档除以用时得到速度；功率 = 速度 × 满电容量 × 3.85V。")
+        lines.append("阶段：至少看到 2 次电量变化、跨度 ≥ 36 秒给出「初步估算」；至少 3 次变化、跨度 ≥ 2.5 分钟算「较稳定」。电量比平时久得多没变（比如优化充电），改为「已放缓」并只给上限。")
+        if let status = battery.power, let error = status.timingError {
+            lines.append(String(format: "本轮计时误差约 ±%.0f%%（采样间隔 ÷ 跨度）。", error * 100))
+        }
+        lines.append("精度：系统电量 \(precisionText)。1% 一档、约 20W 快充时 1 分钟左右出初步结果；5% 一档或慢充时要几分钟，这是系统数据精度决定的，无法再缩短。")
+        let intervals = engine.diagnostics.batteryChangeIntervals
+        if !intervals.isEmpty {
+            lines.append("最近几次电量变化间隔：" + intervals.map { String(format: "%.0f 秒", $0) }.joined(separator: "、"))
+        }
+        lines.append("其他误差：电池实际电压在 3.7–4.4V 之间变化、满电容量取决于你填写的最大容量，所以功率本身约有 ±10% 的误差，显示时只保留两位有效数字。")
+        return lines.joined(separator: "\n\n")
     }
 
     private var timeToFullText: String? {

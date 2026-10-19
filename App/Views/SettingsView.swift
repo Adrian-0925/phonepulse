@@ -2,7 +2,9 @@ import SwiftUI
 
 struct SettingsView: View {
     @State private var showsGuide = false
+    @State private var showsControlGuide = false
     @AppStorage("autoOpenChargingScreen") private var autoOpenChargingScreen = false
+    @AppStorage(ChargeSessionStore.autoAssignKey) private var autoAssignAccessory = false
 
     var body: some View {
         NavigationStack {
@@ -12,6 +14,13 @@ struct SettingsView: View {
                         showsGuide = true
                     } label: {
                         Label("添加小组件和开启灵动岛", systemImage: "questionmark.circle")
+                    }
+                    if ControlCenterTip.isSupported {
+                        Button {
+                            showsControlGuide = true
+                        } label: {
+                            Label("添加控制中心按钮", systemImage: "switch.2")
+                        }
                     }
                     NavigationLink {
                         BatteryDetailView()
@@ -30,11 +39,17 @@ struct SettingsView: View {
                     } label: {
                         Label("充电记录", systemImage: "list.bullet.rectangle")
                     }
+                    NavigationLink {
+                        AccessoryCompareView()
+                    } label: {
+                        Label("充电器／线材对比", systemImage: "chart.bar.xaxis")
+                    }
                     Toggle("插电时自动打开充电大屏", isOn: $autoOpenChargingScreen)
+                    Toggle("新的充电沿用上次的配件组合", isOn: $autoAssignAccessory)
                 } header: {
                     Text("充电")
                 } footer: {
-                    Text("只在 App 开着时生效。充电大屏会让屏幕保持常亮，离开大屏后恢复自动锁屏。")
+                    Text("只在 App 开着时生效。充电大屏会让屏幕保持常亮，离开大屏后恢复自动锁屏。\n沿用配件：适合总用同一套充电器的人；换了充电器记得在充电卡片上改一下，否则对比会不准。默认关闭，首页会提供「还是用上次的」一键选择。")
                 }
 
                 Section("设备") {
@@ -66,6 +81,9 @@ struct SettingsView: View {
             .navigationTitle("设置")
             .sheet(isPresented: $showsGuide) {
                 OnboardingView()
+            }
+            .sheet(isPresented: $showsControlGuide) {
+                ControlCenterGuideView()
             }
         }
     }

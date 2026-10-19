@@ -39,6 +39,29 @@ struct MetricValue: View {
     }
 }
 
+/// 功率测定状态的小标签：正在采集（灰）、初步估算（黄）、较稳定（绿）、已放缓 / 已断开（橙）
+struct PowerStatusBadge: View {
+    let readout: PowerReadout
+
+    var body: some View {
+        Text(readout.label)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.15), in: Capsule())
+    }
+
+    private var color: Color {
+        switch readout.status {
+        case .stable, .full: Theme.battery
+        case .preliminary: Theme.charging
+        case .slowed, .disconnected: Theme.storage
+        case .collecting, .noData: .gray
+        }
+    }
+}
+
 struct SparklineSeries: Identifiable {
     let id: String
     let values: [Double]

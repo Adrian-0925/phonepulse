@@ -107,8 +107,11 @@ private struct CompactTrailingView: View {
                         .multilineTextAlignment(.trailing)
                         .foregroundStyle(Theme.charging)
                 } else if let watts = state.powerWatts, watts > 0 {
-                    Text(String(format: "%.0fW", watts))
+                    Text(Format.estimatedWattsNumber(watts) + "W")
                         .foregroundStyle(Theme.charging)
+                } else if state.batteryState == .charging, state.powerPhase == .collecting || state.powerPhase == .slowed {
+                    Text(state.powerPhase == .slowed ? "放缓" : "测定中")
+                        .foregroundStyle(Theme.textSecondary)
                 } else {
                     Text(state.batteryState == .full ? "已满" : state.batteryState.label)
                 }
@@ -319,13 +322,25 @@ private extension StatusActivityAttributes.ContentState {
     }
 
     var powerText: String {
+        if batteryState == .full { return "已充满" }
+        if powerPhase == .slowed { return "放缓" }
         guard let watts = powerWatts else { return "-- W" }
-        return String(format: "≈%.1f W", abs(watts))
+        return "≈" + Format.estimatedWatts(watts)
     }
 
+    /// 说清楚是正在采集、初步估算还是较稳定的结果，和 App 里的说法一致
     var powerCaption: String {
-        guard let watts = powerWatts else { return batteryState == .charging ? "功率估算中" : "耗电功率估算中" }
-        return watts >= 0 ? "充电功率（估算）" : "耗电功率（估算）"
+        let kind = (powerWatts ?? 0) < 0 || batteryState == .unplugged ? "耗电" : "充电"
+        if batteryState == .full { return "保持插电" }
+        switch powerPhase {
+        case .collecting: return "\(kind)功率 · 正在采集"
+        case .preliminary: return "\(kind)功率 · 初步估算"
+        case .stable: return "\(kind)功率（估算）"
+        case .slowed: return batteryState == .charging ? "充电已放缓" : "耗电很慢"
+        case nil:
+            guard powerWatts != nil else { return "\(kind)功率 · 正在采集" }
+            return "\(kind)功率（估算）"
+        }
     }
 
     /// 倒计时终点，保证晚于更新时间（区间不合法会让界面崩溃）

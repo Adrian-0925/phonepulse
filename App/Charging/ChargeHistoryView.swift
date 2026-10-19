@@ -16,6 +16,24 @@ struct ChargeHistoryView: View {
                 }
             }
             Section {
+                NavigationLink {
+                    AccessoryCompareView()
+                } label: {
+                    Label("充电器／线材对比", systemImage: "chart.bar.xaxis")
+                }
+                NavigationLink {
+                    AccessoryListView()
+                } label: {
+                    LabeledContent {
+                        Text("\(store.book.profiles.count) 个")
+                    } label: {
+                        Label("管理配件组合", systemImage: "cable.connector")
+                    }
+                }
+            } footer: {
+                Text("给每次充电选上用的充电器和线材，就能比较不同组合的实际充电速度。")
+            }
+            Section {
                 if store.sessions.isEmpty {
                     Text("还没有充电记录。插上电并打开 App，就会开始记录。")
                         .foregroundStyle(.secondary)
@@ -43,8 +61,10 @@ struct ChargeHistoryView: View {
     }
 }
 
-private struct ChargeSessionRow: View {
+struct ChargeSessionRow: View {
     let session: ChargeSession
+
+    private var store: ChargeSessionStore { .shared }
 
     var body: some View {
         let report = ChargeAnalyzer.report(for: session, now: .now)
@@ -60,15 +80,23 @@ private struct ChargeSessionRow: View {
                     .monospacedDigit()
                 Text(report.map { Format.duration($0.duration) } ?? "--")
                 if let watts = report?.averageWatts {
-                    Text("平均 ≈ \(Format.watts(watts))")
+                    Text("平均 ≈ \(Format.estimatedWatts(watts))")
                 }
             }
             .font(.caption)
             .foregroundStyle(.secondary)
-            if report?.optimizedCharging == .suspected {
-                Text("疑似优化充电")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Theme.caution)
+            HStack(spacing: 8) {
+                if let accessory = store.accessory(session.accessoryID) {
+                    Label(accessory.name, systemImage: "cable.connector")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(Theme.storage)
+                        .lineLimit(1)
+                }
+                if report?.optimizedCharging == .suspected {
+                    Text("疑似优化充电")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(Theme.caution)
+                }
             }
         }
         .padding(.vertical, 2)
@@ -81,16 +109,9 @@ struct ChargeReportView: View {
 
     private var store: ChargeSessionStore { .shared }
 
-    /// 正在充电的那次会随采样更新，所以每次都从存储里取最新的
-    private var session: ChargeSession? {
-        if let current = store.current, current.id == sessionID {
-            return current
-        }
-        return store.sessions.first { $0.id == sessionID }
-    }
-
     var body: some View {
-        if let session, let report = ChargeAnalyzer.report(for: session, now: .now) {
+        // 正在充电的那次会随采样更新，所以每次都从存储里取最新的
+        if let session = store.session(sessionID), let report = ChargeAnalyzer.report(for: session, now: .now) {
             List {
                 Section {
                     ChargeCurveChart(samples: session.samples, tint: Theme.storage)
@@ -100,17 +121,29 @@ struct ChargeReportView: View {
                     Text("曲线断开的地方表示 App 没在运行、没有数据。虚线是 80%，系统的优化充电常在这里放慢。")
                 }
 
+                Section {
+                    AccessoryPicker(sessionID: session.id)
+                    if session.isOngoing, session.accessoryID == nil, store.book.lastUsed != nil {
+                        LastAccessorySuggestion(sessionID: session.id)
+                    }
+                } footer: {
+                    Text("选上这次用的充电器和线材，记录会归到这个组合里，用来做「充电器／线材对比」。")
+                }
+
                 Section("概况") {
                     LabeledContent("电量", value: levelRangeText(report))
                     LabeledContent("用时", value: (session.startObserved ? "" : "≥ ") + Format.duration(report.duration))
                     LabeledContent("开始", value: startText(session))
                     LabeledContent("结束", value: endText(session))
+                    if let thermal = session.peakThermal, thermal.severity >= 1 {
+                        LabeledContent("最高温控", value: "\(thermal.label)（系统可能限速）")
+                    }
                 }
 
                 Section {
                     LabeledContent("平均速度", value: report.levelPerHour.map(Format.levelRate) ?? "数据不足")
-                    LabeledContent("平均功率", value: report.averageWatts.map { "≈ \(Format.watts($0))" } ?? "数据不足")
-                    LabeledContent("峰值功率", value: report.peakWatts.map { "≈ \(Format.watts($0))" } ?? "数据不足")
+                    LabeledContent("平均功率", value: report.averageWatts.map { "≈ \(Format.estimatedWatts($0))" } ?? "数据不足")
+                    LabeledContent("峰值功率", value: report.peakWatts.map { "≈ \(Format.estimatedWatts($0))" } ?? "数据不足")
                 } header: {
                     Text("速度与功率（估算）")
                 } footer: {

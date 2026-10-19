@@ -127,7 +127,7 @@ extension MetricKind {
             display.detail = "保持插电"
             display.source = .measured
         } else if battery.state == .charging, let watts = battery.estimatedPowerWatts, watts > 0 {
-            display.value = String(format: "%.1f", watts)
+            display.value = Format.estimatedWattsNumber(watts)
             display.unit = "W"
             display.detail = chargingDetail(battery)
         } else if let rate = battery.levelPerHour {
@@ -141,7 +141,7 @@ extension MetricKind {
             }
         } else {
             display.title = battery.state == .charging ? "充电" : "耗电速度"
-            display.detail = battery.state == .charging ? "正在估算功率…" : "刷新几次后显示"
+            display.detail = battery.state == .charging ? "正在采集，刷新几次后显示" : "刷新几次后显示"
             if battery.state != .charging {
                 display.icon = "arrow.down.right"
                 display.tint = Theme.caution

@@ -43,10 +43,24 @@ struct RefreshLiveActivityIntent: LiveActivityIntent {
     }
 }
 
-/// 灵动岛上的「切换」按钮：自动 → 电池 → 网速 → 性能
+/// 控制中心「刷新」：现场读一次数据，更新灵动岛（开着的话）和所有小组件。在 App 进程里执行，不用打开 App
+struct RefreshAllIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "刷新 PhonePulse 数据"
+    static var description = IntentDescription("立即读取一次手机状态，更新灵动岛和小组件。")
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        #if !WIDGET_EXTENSION
+        await LiveActivityService.shared.refreshEverything()
+        #endif
+        return .result()
+    }
+}
+
+/// 灵动岛和控制中心上的「切换」按钮：自动 → 电池 → 网速 → 性能。灵动岛没开时会先开启
 struct CycleLiveActivityFocusIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "切换 PhonePulse 灵动岛显示内容"
-    static var description = IntentDescription("在自动、电池、网速、性能之间切换灵动岛重点显示的内容。")
+    static var description = IntentDescription("在自动、电池、网速、性能之间切换灵动岛重点显示的内容；灵动岛没开时会先开启。")
 
     @MainActor
     func perform() async throws -> some IntentResult {

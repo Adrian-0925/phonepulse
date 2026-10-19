@@ -72,6 +72,36 @@ enum Format {
         String(format: "%.1f W", value)
     }
 
+    /// 估算功率的数字（不带单位），保留两位有效数字：18 W、4.3 W。
+    /// 估算本身有约 ±10% 的误差（电压按 3.85V 计、容量按手动填写），多写小数位反而误导
+    static func estimatedWattsNumber(_ value: Double) -> String {
+        let magnitude = abs(value)
+        return String(format: magnitude >= 9.95 ? "%.0f" : "%.1f", magnitude)
+    }
+
+    /// 估算功率，如 18 W、4.3 W（取绝对值，方向由文案说明）
+    static func estimatedWatts(_ value: Double) -> String {
+        estimatedWattsNumber(value) + " W"
+    }
+
+    /// 多久以前，如 刚刚、35 秒前、3 分钟前
+    static func ago(_ seconds: TimeInterval) -> String {
+        let value = max(seconds, 0)
+        if value < 5 { return "刚刚" }
+        if value < 60 { return "\(Int(value)) 秒前" }
+        if value < 3600 { return "\(Int(value / 60)) 分钟前" }
+        return "\(Int(value / 3600)) 小时前"
+    }
+
+    /// 已经过了多久（向下取整，不会把 90 秒说成 2 分钟），如 35 秒、1 分钟、1 小时 5 分
+    static func elapsed(_ seconds: TimeInterval) -> String {
+        let value = max(seconds, 0)
+        if value < 60 { return "\(Int(value)) 秒" }
+        let minutes = Int(value / 60)
+        if minutes < 60 { return "\(minutes) 分钟" }
+        return minutes % 60 == 0 ? "\(minutes / 60) 小时" : "\(minutes / 60) 小时 \(minutes % 60) 分"
+    }
+
     /// 电量变化速度，如 +18%/h、-8%/h
     static func levelRate(_ perHour: Double) -> String {
         String(format: "%+.0f%%/h", perHour * 100)

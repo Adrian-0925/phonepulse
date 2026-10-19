@@ -23,6 +23,10 @@ struct ChargeSession: Codable, Equatable, Identifiable {
     var tag: String?
     /// 当时的满电容量，用来把速度换算成估算功率
     var capacityMAh: Int?
+    /// 这次用的配件组合（AccessoryBook 里的 id）；nil 表示没指定
+    var accessoryID: UUID? = nil
+    /// 这次充电期间最高的温控状态：发热会让系统放慢充电，对比时要提醒
+    var peakThermal: ThermalLevel? = nil
 
     var isOngoing: Bool { endDate == nil }
 }
@@ -42,9 +46,14 @@ struct ChargeSessionRecorder: Codable, Equatable {
 
     init() {}
 
+    /// 给正在进行的充电指定配件组合
+    mutating func assignAccessory(_ id: UUID?) {
+        current?.accessoryID = id
+    }
+
     /// 每次读到电量时调用；拔电（或发现中间拔过电）时返回刚结束的那次充电
     @discardableResult
-    mutating func record(level: Double?, state: BatteryState, at time: Date, capacityMAh: Int?) -> ChargeSession? {
+    mutating func record(level: Double?, state: BatteryState, at time: Date, capacityMAh: Int?, thermal: ThermalLevel? = nil) -> ChargeSession? {
         guard state != .unknown, let level else { return nil }
         let continuous = lastTime.map { time.timeIntervalSince($0) <= Self.continuityLimit } ?? false
         let previousState = lastState
@@ -68,6 +77,7 @@ struct ChargeSessionRecorder: Codable, Equatable {
                 if let capacityMAh {
                     session.capacityMAh = capacityMAh
                 }
+                session.peakThermal = Self.hotter(session.peakThermal, thermal)
                 current = session
             } else {
                 current = ChargeSession(
@@ -78,7 +88,8 @@ struct ChargeSessionRecorder: Codable, Equatable {
                     endObserved: false,
                     samples: [ChargeSample(time: time, level: level)],
                     tag: nil,
-                    capacityMAh: capacityMAh)
+                    capacityMAh: capacityMAh,
+                    peakThermal: thermal)
             }
         } else if var session = current {
             // 拔电：看到了拔电那一刻就记当前时间，否则只能算到最后一个点
@@ -93,6 +104,12 @@ struct ChargeSessionRecorder: Codable, Equatable {
             current = nil
         }
         return finished
+    }
+
+    private static func hotter(_ a: ThermalLevel?, _ b: ThermalLevel?) -> ThermalLevel? {
+        guard let a else { return b }
+        guard let b else { return a }
+        return b.severity > a.severity ? b : a
     }
 }
 

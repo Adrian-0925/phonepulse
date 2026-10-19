@@ -133,7 +133,9 @@ private struct LiveActivityGuidePage: View {
             .buttonStyle(.bordered)
             .tint(Theme.charging)
             .controlSize(.large)
-            Text(message ?? "以后也可以在首页顶部或大尺寸小组件上开关。App 在前台时实时刷新，其他时候显示最后一次的数据。")
+            Text(message ?? (ControlCenterTip.isSupported
+                             ? "以后也可以在首页、大尺寸小组件或控制中心（设置 → 添加控制中心按钮）开关。App 在前台时实时刷新，其他时候显示最后一次的数据。"
+                             : "以后也可以在首页顶部或大尺寸小组件上开关。App 在前台时实时刷新，其他时候显示最后一次的数据。"))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             Spacer()

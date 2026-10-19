@@ -89,9 +89,19 @@ private struct ChargingScreenContent: View {
             }
             .lineLimit(1)
             .minimumScaleFactor(0.5)
-            HStack(spacing: 24) {
-                ScreenStat(title: "估算功率", value: battery?.estimatedPowerWatts.map { "≈ \(Format.watts(abs($0)))" } ?? "估算中")
-                ScreenStat(title: "充电速度", value: battery?.levelPerHour.map(Format.levelRate) ?? "估算中")
+            if let battery {
+                let readout = PowerReadout(battery: battery, now: .now, context: .charging)
+                let speed: String = readout.hasResult ? (battery.levelPerHour.map(Format.levelRate) ?? "--") : "--"
+                HStack(alignment: .top, spacing: 24) {
+                    ScreenStat(title: readout.title + "（估算）", value: readout.value, caption: readout.label)
+                    ScreenStat(title: "充电速度", value: speed, caption: readout.hasResult ? readout.detail : nil)
+                }
+                if !readout.hasResult, battery.state != .full {
+                    Text(readout.detail)
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineLimit(2)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -138,11 +148,15 @@ private struct ChargingScreenContent: View {
     }
 
     private func etaPlaceholder(_ battery: BatterySample?) -> String {
-        switch battery?.state {
-        case .full: "已充满，可以拔掉了"
-        case .charging: "正在估算充满时间，需要几分钟…"
-        case .unplugged: "没有插电。插上电后这里会显示充电进度"
-        default: "正在读取电池状态…"
+        guard let battery else { return "正在读取电池状态…" }
+        switch battery.state {
+        case .full: return "已充满，可以拔掉了"
+        case .unplugged: return "已断开充电器。插上电后重新开始测定"
+        case .unknown: return "暂无电池数据"
+        case .charging:
+            let readout = PowerReadout(battery: battery, now: .now, context: .charging)
+            if readout.status == .slowed { return "充电已放缓，暂时无法预计充满时间" }
+            return "正在测定充电速度，测出后显示充满时间"
         }
     }
 
@@ -170,7 +184,7 @@ private struct ChargingScreenContent: View {
         HStack(spacing: 32) {
             ScreenStat(title: "本次已充", value: report.map { String(format: "%+.0f%%", ($0.endLevel - $0.startLevel) * 100) } ?? "--")
             ScreenStat(title: "用时", value: durationText(session: session, report: report))
-            ScreenStat(title: "峰值功率", value: report?.peakWatts.map { "≈ \(Format.watts($0))" } ?? "--")
+            ScreenStat(title: "峰值功率", value: report?.peakWatts.map { "≈ \(Format.estimatedWatts($0))" } ?? "--")
             ScreenStat(title: "数据完整度", value: report.map { Format.percent($0.completeness) } ?? "--")
         }
     }
@@ -185,6 +199,7 @@ private struct ChargingScreenContent: View {
 private struct ScreenStat: View {
     let title: String
     let value: String
+    var caption: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -196,6 +211,14 @@ private struct ScreenStat: View {
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
+                .contentTransition(.numericText())
+            if let caption {
+                Text(caption)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Theme.charging.opacity(0.85))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
         }
     }
 }

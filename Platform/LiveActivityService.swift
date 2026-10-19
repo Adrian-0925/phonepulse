@@ -3,6 +3,7 @@ import ActivityKit
 import Foundation
 import Observation
 import UIKit
+import WidgetKit
 
 /// 管理灵动岛 / 锁屏实时活动。只编译进 App（扩展里不能开启实时活动）。
 ///
@@ -40,6 +41,7 @@ final class LiveActivityService {
         let saved = SharedStore.defaults.string(forKey: SharedStore.Key.liveActivityFocus) ?? ""
         focus = LiveActivityFocus(rawValue: saved) ?? .auto
         isRunning = !Activity<StatusActivityAttributes>.activities.isEmpty
+        SharedStore.defaults.set(isRunning, forKey: SharedStore.Key.liveActivityRunning)
     }
 
     var areActivitiesEnabled: Bool {
@@ -75,6 +77,7 @@ final class LiveActivityService {
             lastError = nil
             lastPushedState = state
             recordPush()
+            publishState()
             EventLog.shared.add("灵动岛已开启（\(focus.label)）")
         } catch {
             lastError = error.localizedDescription
@@ -89,6 +92,7 @@ final class LiveActivityService {
         }
         isRunning = false
         lastPushedState = nil
+        publishState()
         EventLog.shared.add("灵动岛已关闭")
     }
 
@@ -96,10 +100,22 @@ final class LiveActivityService {
         guard newFocus != focus else { return }
         focus = newFocus
         SharedStore.defaults.set(newFocus.rawValue, forKey: SharedStore.Key.liveActivityFocus)
+        publishState()
         if var state = latestState {
             state.focus = newFocus
             latestState = state
             push(state)
+        }
+    }
+
+    /// 控制中心「刷新」：灵动岛开着就现场更新它，同时让小组件重新读取数据
+    func refreshEverything() async {
+        WidgetCenter.shared.reloadAllTimelines()
+        if Activity<StatusActivityAttributes>.activities.isEmpty {
+            EventLog.shared.add("控制中心刷新：已请求小组件刷新（灵动岛没开）")
+        } else {
+            await refresh()
+            EventLog.shared.add("控制中心刷新：灵动岛和小组件")
         }
     }
 
@@ -120,11 +136,21 @@ final class LiveActivityService {
         await updateTask?.value
     }
 
-    /// 灵动岛上的「切换」按钮：自动 → 电池 → 网速 → 性能 → 自动
+    /// 灵动岛上的「切换」按钮：自动 → 电池 → 网速 → 性能 → 自动。
+    /// 从控制中心点时灵动岛可能没开：先开启，让用户马上看到切换后的内容
     func cycleFocus() async {
         let all = LiveActivityFocus.allCases
         let index = all.firstIndex(of: focus) ?? 0
         setFocus(all[(index + 1) % all.count])
+        if Activity<StatusActivityAttributes>.activities.isEmpty {
+            do {
+                try start()
+                await refresh()
+            } catch {
+                // 实时活动被关闭等情况：start 里已记录原因
+            }
+            return
+        }
         if latestState?.isLive == true {
             await updateTask?.value
         } else {
@@ -141,6 +167,7 @@ final class LiveActivityService {
         if running != isRunning {
             // 用户可能在锁屏上划掉了，或者系统到时间自动结束了
             isRunning = running
+            publishState()
         }
         guard running else { return }
 
@@ -180,6 +207,15 @@ final class LiveActivityService {
                 self.lastUpdateDuration = Date.now.timeIntervalSince(started)
             }
             self?.updateTask = nil
+        }
+    }
+
+    /// 把开关状态和重点写进共享存储，并让控制中心按钮重新读取。
+    /// 只有 App Group 可用时控制中心才读得到；不可用时按钮显示通用名称，但操作照样有效
+    private func publishState() {
+        SharedStore.defaults.set(isRunning, forKey: SharedStore.Key.liveActivityRunning)
+        if #available(iOS 18.0, *) {
+            ControlCenter.shared.reloadAllControls()
         }
     }
 

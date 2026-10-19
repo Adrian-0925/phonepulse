@@ -21,6 +21,26 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.watts(12.34), "12.3 W")
     }
 
+    func testEstimatedWattsKeepsTwoSignificantDigits() {
+        XCTAssertEqual(Format.estimatedWatts(18.37), "18 W")
+        XCTAssertEqual(Format.estimatedWatts(4.26), "4.3 W")
+        XCTAssertEqual(Format.estimatedWatts(0.84), "0.8 W")
+        XCTAssertEqual(Format.estimatedWatts(9.97), "10 W")
+        XCTAssertEqual(Format.estimatedWatts(-6.5), "6.5 W")
+        XCTAssertEqual(Format.estimatedWattsNumber(27.6), "28")
+    }
+
+    func testAgoAndElapsed() {
+        XCTAssertEqual(Format.ago(2), "刚刚")
+        XCTAssertEqual(Format.ago(-3), "刚刚")
+        XCTAssertEqual(Format.ago(35), "35 秒前")
+        XCTAssertEqual(Format.ago(200), "3 分钟前")
+        XCTAssertEqual(Format.ago(7_300), "2 小时前")
+        XCTAssertEqual(Format.elapsed(35), "35 秒")
+        XCTAssertEqual(Format.elapsed(90), "1 分钟")
+        XCTAssertEqual(Format.elapsed(3_900), "1 小时 5 分")
+    }
+
     func testSpeedParts() {
         XCTAssertEqual(Format.speedParts(1_500_000).value, "1.50")
         XCTAssertEqual(Format.speedParts(1_500_000).unit, "MB/s")

@@ -97,11 +97,34 @@ private struct WidgetBackground: View {
     }
 }
 
+/// 扩展入口。控制中心按钮只有 iOS 18 起才有，最低支持 iOS 17，所以按系统版本选择两套组件：
+/// 在同一个 WidgetBundle 里写 if #available 会在部分 Xcode 版本上编译失败或在 iOS 17 上崩溃
 @main
+struct PhonePulseWidgetEntry {
+    static func main() {
+        if #available(iOS 18.0, *) {
+            PhonePulseWidgetBundleWithControls.main()
+        } else {
+            PhonePulseWidgetBundle.main()
+        }
+    }
+}
+
 struct PhonePulseWidgetBundle: WidgetBundle {
     var body: some Widget {
         StatusWidget()
         StatusLiveActivity()
+    }
+}
+
+@available(iOS 18.0, *)
+struct PhonePulseWidgetBundleWithControls: WidgetBundle {
+    var body: some Widget {
+        StatusWidget()
+        StatusLiveActivity()
+        LiveActivityControl()
+        RefreshStatusControl()
+        CycleFocusControl()
     }
 }
 

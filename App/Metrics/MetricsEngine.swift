@@ -13,6 +13,8 @@ struct EngineDiagnostics {
     var rawBatteryLevel: Float = -1
     var smallestBatteryStep: Double?
     var batteryChangePoints = 0
+    /// 最近几次电量变化的间隔（秒）：间隔稳定说明系统电量更新及时，忽大忽小说明有延迟
+    var batteryChangeIntervals: [TimeInterval] = []
     var interfaces: [InterfaceReading] = []
 }
 
@@ -62,19 +64,21 @@ final class MetricsEngine {
         lastTickDate = nil
         network.pause()
         cpu.pause()
+        battery.pause(at: .now)
         persist()
         LiveActivityService.shared.engineDidStop()
         ChargeSessionStore.shared.save()
     }
 
     private func tick() {
+        let now = Date.now
         let cpuSample = cpu.sample()
         let snapshot = MetricsSnapshot(
-            timestamp: .now,
+            timestamp: now,
             network: network.sample(),
             cpu: cpuSample ?? self.snapshot?.cpu,
             memory: SystemProbe.memory(),
-            battery: battery.sample(),
+            battery: battery.sample(at: now),
             storage: SystemProbe.storage(),
             thermal: SystemProbe.thermal)
         self.snapshot = snapshot
@@ -121,6 +125,7 @@ final class MetricsEngine {
         next.rawBatteryLevel = battery.rawLevel
         next.smallestBatteryStep = battery.smallestObservedStep
         next.batteryChangePoints = battery.changePointCount
+        next.batteryChangeIntervals = battery.recentChangeIntervals
         next.interfaces = network.lastReadings
         diagnostics = next
     }

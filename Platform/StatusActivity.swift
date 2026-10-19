@@ -41,6 +41,8 @@ struct StatusActivityAttributes: ActivityAttributes {
         var isLive: Bool
         /// 这份数据来自灵动岛上的「刷新」按钮（App 被暂停时现场读了一次），之后不会自动更新
         var manualRefresh: Bool? = nil
+        /// 功率测定到哪一步（正在采集 / 初步 / 较稳定 / 已放缓）；旧版本推送的数据里没有
+        var powerPhase: PowerPhase? = nil
 
         /// 状态行文字
         var statusText: String {
@@ -74,7 +76,7 @@ extension StatusActivityAttributes.ContentState {
             focus.rawValue,
             batteryText,
             batteryState.rawValue,
-            powerWatts.map { String(format: "%.1f", $0) } ?? "-",
+            powerWatts.map(Format.estimatedWattsNumber) ?? "-",
             levelPerHour.map { String(format: "%.2f", $0) } ?? "-",
             Format.speed(downloadBytesPerSecond),
             Format.speed(uploadBytesPerSecond),
@@ -82,6 +84,7 @@ extension StatusActivityAttributes.ContentState {
             thermal.rawValue,
             fullDate.map { String(Int($0.timeIntervalSinceReferenceDate / 60)) } ?? "-",
             statusText,
+            powerPhase?.rawValue ?? "-",
         ]
     }
 
@@ -102,7 +105,8 @@ extension StatusActivityAttributes.ContentState {
             thermal: reading.thermal,
             updatedAt: .now,
             isLive: false,
-            manualRefresh: true)
+            manualRefresh: true,
+            powerPhase: samePlugState ? previous?.powerPhase : nil)
     }
 
     /// 由 App 的一次完整采样生成
@@ -125,6 +129,8 @@ extension StatusActivityAttributes.ContentState {
             cpuUsage: snapshot.cpu?.isSystemWide == true ? snapshot.cpu?.usage : nil,
             thermal: snapshot.thermal,
             updatedAt: snapshot.timestamp,
-            isLive: isLive)
+            isLive: isLive,
+            manualRefresh: nil,
+            powerPhase: battery.power?.phase)
     }
 }

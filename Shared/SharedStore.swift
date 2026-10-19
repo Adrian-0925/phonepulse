@@ -12,9 +12,15 @@ enum SharedStore {
         static let batteryHealthPercent = "batteryHealthPercent"
         static let batteryCycleCount = "batteryCycleCount"
         static let liveActivityFocus = "liveActivityFocus"
+        /// 灵动岛是否开着（App 写，控制中心按钮读；只有 App Group 可用时两边才读得到同一份）
+        static let liveActivityRunning = "liveActivityRunning"
     }
 
     static let defaults: UserDefaults = UserDefaults(suiteName: appGroupID) ?? .standard
+
+    /// App Group 是否真的可用。免费账号侧载时通常不可用：UserDefaults(suiteName:) 仍会返回对象，但两边各存各的
+    static let isAppGroupAvailable: Bool =
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) != nil
 
     static func save(_ snapshot: MetricsSnapshot) {
         guard let data = try? JSONEncoder().encode(snapshot) else { return }

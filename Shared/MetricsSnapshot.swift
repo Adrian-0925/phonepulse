@@ -63,6 +63,8 @@ struct BatterySample: Codable, Equatable {
     var capacityMAh: Int?
     /// 电量变化速度（每小时变化的比例，0.18 = 每小时 +18%），根据电量变化推算
     var levelPerHour: Double? = nil
+    /// App 每秒采样时的功率测定状态（正在采集 / 初步 / 较稳定 / 已放缓）；小组件自己读数时为 nil
+    var power: PowerStatus? = nil
 }
 
 enum BatteryState: String, Codable {
