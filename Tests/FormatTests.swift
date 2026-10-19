@@ -44,6 +44,16 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.memoryParts(512 << 20).unit, "MB")
     }
 
+    func testBatteryPercentRoundsLikeTheSystem() {
+        // UIDevice 给的是 Float，转成 Double 后会有极小误差，不能因此少 1%
+        XCTAssertEqual(Format.batteryPercent(Double(Float(0.57))), "57%")
+        XCTAssertEqual(Format.batteryPercent(Double(Float(0.29))), "29%")
+        XCTAssertEqual(Format.batteryPercent(0.775), "78%")
+        XCTAssertEqual(Format.batteryPercent(1.0), "100%")
+        XCTAssertEqual(Format.batteryNumber(0.05), "5")
+        XCTAssertEqual(Format.batteryPercent(1.2), "100%")
+    }
+
     func testLevelRate() {
         XCTAssertEqual(Format.levelRate(0.18), "+18%/h")
         XCTAssertEqual(Format.levelRate(-0.08), "-8%/h")

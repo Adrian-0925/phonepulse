@@ -54,6 +54,16 @@ enum Format {
         sizeParts(Double(bytes), base: 1024)
     }
 
+    /// 电量数字（不带 %），四舍五入到整数。所有显示电量的地方都用它，保证 App、小组件、灵动岛取整方式一致
+    static func batteryNumber(_ level: Double) -> String {
+        String(Int((min(max(level, 0), 1) * 100).rounded()))
+    }
+
+    /// 电量百分比，如 78%
+    static func batteryPercent(_ level: Double) -> String {
+        batteryNumber(level) + "%"
+    }
+
     static func percent(_ fraction: Double) -> String {
         fraction.formatted(.percent.precision(.fractionLength(0)))
     }

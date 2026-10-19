@@ -69,7 +69,7 @@ private struct ChargingCard: View {
     var body: some View {
         MetricCard(title: battery.state == .full ? "已充满" : "正在充电", systemImage: "bolt.fill", tint: Theme.charging) {
             HStack(alignment: .firstTextBaseline) {
-                MetricValue(text: battery.level.map(Format.percent) ?? "--")
+                MetricValue(text: battery.level.map(Format.batteryPercent) ?? "--")
                 Spacer()
                 Text(battery.estimatedPowerWatts.map { "≈ \(Format.watts(abs($0)))（估算）" } ?? "功率估算中…")
                     .font(.subheadline)
@@ -273,7 +273,7 @@ private struct BatteryCard: View {
 
     var body: some View {
         MetricCard(title: "电池", systemImage: icon, tint: sample.state == .charging ? .green : .yellow) {
-            MetricValue(text: sample.level.map(Format.percent) ?? "--")
+            MetricValue(text: sample.level.map(Format.batteryPercent) ?? "--")
             Text(sample.isLowPowerMode ? "\(sample.state.label) · 低电量模式" : sample.state.label)
                 .font(.subheadline)
             Text(powerText)

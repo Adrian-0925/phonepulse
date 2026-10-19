@@ -111,7 +111,7 @@ extension MetricKind {
         return MetricDisplay(
             kind: self,
             title: "电量",
-            value: battery.level.map { String(format: "%.0f", $0 * 100) } ?? "--",
+            value: battery.level.map(Format.batteryNumber) ?? "--",
             unit: battery.level == nil ? "" : "%",
             detail: detail,
             progress: battery.level,

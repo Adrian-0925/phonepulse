@@ -68,7 +68,7 @@ final class ChargeSessionStore {
         if sessions.count > maxSessions {
             sessions.removeLast(sessions.count - maxSessions)
         }
-        EventLog.shared.add("充电记录已保存：\(Format.percent(session.samples.first?.level ?? 0)) → \(Format.percent(session.samples.last?.level ?? 0))")
+        EventLog.shared.add("充电记录已保存：\(Format.batteryPercent(session.samples.first?.level ?? 0)) → \(Format.batteryPercent(session.samples.last?.level ?? 0))")
     }
 
     private func load() {

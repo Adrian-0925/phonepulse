@@ -79,7 +79,7 @@ private struct ChargingScreenContent: View {
                 .font(.system(size: 20, weight: .semibold, design: .rounded))
                 .foregroundStyle(color)
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(battery?.level.map { String(format: "%.0f", $0 * 100) } ?? "--")
+                Text(battery?.level.map(Format.batteryNumber) ?? "--")
                     .font(Theme.number(150))
                     .foregroundStyle(LinearGradient(colors: [.white, color], startPoint: .top, endPoint: .bottom))
                     .contentTransition(.numericText())

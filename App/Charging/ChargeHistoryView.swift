@@ -176,5 +176,5 @@ private struct CompletenessBadge: View {
 
 private func levelRangeText(_ report: ChargeReport?) -> String {
     guard let report else { return "--" }
-    return "\(Format.percent(report.startLevel)) → \(Format.percent(report.endLevel))"
+    return "\(Format.batteryPercent(report.startLevel)) → \(Format.batteryPercent(report.endLevel))"
 }

@@ -54,7 +54,7 @@ struct StatusActivityAttributes: ActivityAttributes {
         }
 
         var batteryText: String {
-            batteryLevel.map { String(format: "%.0f%%", $0 * 100) } ?? "--"
+            batteryLevel.map(Format.batteryPercent) ?? "--"
         }
 
         var accentColor: Color {

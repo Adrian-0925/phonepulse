@@ -16,11 +16,14 @@ struct BatteryDetailView: View {
     var body: some View {
         Form {
             Section {
-                SourceRow(title: "剩余电量", value: battery?.level.map(Format.percent) ?? "--", source: .measured)
+                SourceRow(title: "剩余电量", value: battery?.level.map(Format.batteryPercent) ?? "--", source: .measured)
                 SourceRow(title: "状态", value: battery?.state.label ?? "--", source: .measured)
                 SourceRow(title: "低电量模式", value: battery?.isLowPowerMode == true ? "开启" : "关闭", source: .measured)
+                SourceRow(title: "系统电量精度", value: precisionText, source: .measured)
             } header: {
                 Text("当前状态")
+            } footer: {
+                Text("iOS 给 App 的电量可能是按 5% 一档取整的，这时会和状态栏的电量差几个百分点，这是系统的限制。电量变化一次后这里会显示实际精度。")
             }
 
             Section {
@@ -63,6 +66,14 @@ struct BatteryDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: healthPercent) { WidgetCenter.shared.reloadAllTimelines() }
         .onChange(of: designOverride) { WidgetCenter.shared.reloadAllTimelines() }
+    }
+
+    /// 本次运行观察到的最小电量跳变：1% 说明和系统一致，5% 说明系统只给 App 取整后的电量
+    private var precisionText: String {
+        guard let step = engine.diagnostics.smallestBatteryStep else { return "观察中（电量变化一次后显示）" }
+        if step >= 0.045 { return "5% 一档" }
+        if step <= 0.015 { return "1% 一档" }
+        return String(format: "%.0f%% 一档", step * 100)
     }
 
     private var speedTitle: String {
