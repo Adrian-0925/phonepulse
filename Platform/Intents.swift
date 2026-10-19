@@ -28,3 +28,31 @@ struct ToggleLiveActivityIntent: LiveActivityIntent {
         return .result()
     }
 }
+
+/// 灵动岛上的「刷新」按钮：App 被系统暂停时，系统会短暂唤醒 App 现场读一次数据并更新灵动岛
+struct RefreshLiveActivityIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "刷新 PhonePulse 灵动岛"
+    static var description = IntentDescription("立即读取一次手机状态并更新灵动岛。")
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        #if !WIDGET_EXTENSION
+        await LiveActivityService.shared.refresh()
+        #endif
+        return .result()
+    }
+}
+
+/// 灵动岛上的「切换」按钮：自动 → 电池 → 网速 → 性能
+struct CycleLiveActivityFocusIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "切换 PhonePulse 灵动岛显示内容"
+    static var description = IntentDescription("在自动、电池、网速、性能之间切换灵动岛重点显示的内容。")
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        #if !WIDGET_EXTENSION
+        await LiveActivityService.shared.cycleFocus()
+        #endif
+        return .result()
+    }
+}

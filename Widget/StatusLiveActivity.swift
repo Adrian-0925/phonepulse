@@ -1,4 +1,5 @@
 import ActivityKit
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -243,23 +244,52 @@ private struct ActivityDetails: View {
                 StatPill(icon: "cpu", value: state.cpuText, tint: Theme.cpu)
                 StatPill(icon: "thermometer.medium", value: state.thermal.label, tint: Theme.thermalColor(state.thermal))
             }
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 Circle()
-                    .fill(state.isLive && !isStale ? Theme.battery : Theme.caution)
+                    .fill(statusColor)
                     .frame(width: 6, height: 6)
-                Text(statusText)
+                Text("\(statusText) · \(Text(state.updatedAt, style: .time))")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
                 Spacer(minLength: 4)
-                Text("\(Text(state.updatedAt, style: .time)) 更新")
+                // 点按钮时系统会在后台短暂唤醒 App 执行，不用打开 App
+                ActivityButton(intent: CycleLiveActivityFocusIntent(), icon: "arrow.left.arrow.right", title: state.focus.label)
+                ActivityButton(intent: RefreshLiveActivityIntent(), icon: "arrow.clockwise", title: "刷新")
             }
-            .font(.system(size: 10, weight: .medium, design: .rounded))
-            .foregroundStyle(Theme.textSecondary)
-            .lineLimit(1)
         }
     }
 
     private var statusText: String {
-        if isStale { return "数据可能已过期，打开 App 刷新" }
-        return state.isLive ? "实时" : "已暂停 · 打开 App 恢复实时"
+        isStale ? "可能已过期" : state.statusText
+    }
+
+    private var statusColor: Color {
+        if isStale { return Theme.caution }
+        if state.isLive { return Theme.battery }
+        return state.manualRefresh == true ? Theme.network : Theme.caution
+    }
+}
+
+/// 灵动岛展开区 / 锁屏上的小按钮
+private struct ActivityButton<Intent: AppIntent>: View {
+    let intent: Intent
+    let icon: String
+    let title: String
+
+    var body: some View {
+        Button(intent: intent) {
+            HStack(spacing: 3) {
+                Image(systemName: icon)
+                Text(title)
+            }
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Theme.track, in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 

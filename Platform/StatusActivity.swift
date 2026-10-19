@@ -39,6 +39,14 @@ struct StatusActivityAttributes: ActivityAttributes {
         var updatedAt: Date
         /// App 正在采样（前台或悬浮窗开着）；false 表示显示的是最后一次的数据
         var isLive: Bool
+        /// 这份数据来自灵动岛上的「刷新」按钮（App 被暂停时现场读了一次），之后不会自动更新
+        var manualRefresh: Bool? = nil
+
+        /// 状态行文字
+        var statusText: String {
+            if isLive { return "实时" }
+            return manualRefresh == true ? "手动刷新" : "已暂停"
+        }
 
         var effectiveFocus: LiveActivityFocus {
             guard focus == .auto else { return focus }
@@ -73,8 +81,28 @@ extension StatusActivityAttributes.ContentState {
             cpuUsage.map { String(format: "%.0f", $0 * 100) } ?? "-",
             thermal.rawValue,
             fullDate.map { String(Int($0.timeIntervalSinceReferenceDate / 60)) } ?? "-",
-            isLive ? "live" : "paused",
+            statusText,
         ]
+    }
+
+    /// 由一次现场读数生成（灵动岛「刷新」按钮在 App 被暂停时用）。
+    /// 充电速度、功率和充满时间没法现场测，插电状态没变时沿用上一次的估算
+    init(reading: InstantReading, focus: LiveActivityFocus, previous: Self?) {
+        let samePlugState = previous?.batteryState.isPluggedIn == reading.battery.state.isPluggedIn
+        self.init(
+            focus: focus,
+            batteryLevel: reading.battery.level,
+            batteryState: reading.battery.state,
+            powerWatts: samePlugState ? previous?.powerWatts : nil,
+            levelPerHour: samePlugState ? previous?.levelPerHour : nil,
+            fullDate: samePlugState && reading.battery.state == .charging ? previous?.fullDate : nil,
+            downloadBytesPerSecond: reading.network.downloadBytesPerSecond,
+            uploadBytesPerSecond: reading.network.uploadBytesPerSecond,
+            cpuUsage: reading.cpu?.usage,
+            thermal: reading.thermal,
+            updatedAt: .now,
+            isLive: false,
+            manualRefresh: true)
     }
 
     /// 由 App 的一次完整采样生成

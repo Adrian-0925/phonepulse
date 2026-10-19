@@ -103,6 +103,36 @@ final class LiveActivityService {
         }
     }
 
+    /// 灵动岛上的「刷新」按钮：App 正在采样就直接推最新的；App 被系统暂停了就现场读一次（约 1 秒）。
+    /// 由系统在 App 进程里执行，App 被暂停时会被短暂唤醒，不用打开 App。
+    func refresh() async {
+        guard !Activity<StatusActivityAttributes>.activities.isEmpty else { return }
+        if let latestState, latestState.isLive, Date.now.timeIntervalSince(latestState.updatedAt) < 3 {
+            push(latestState)
+        } else {
+            let reading = await InstantSampler.read()
+            let state = StatusActivityAttributes.ContentState(reading: reading, focus: focus, previous: latestState)
+            latestState = state
+            push(state)
+            EventLog.shared.add("灵动岛手动刷新（App 没在采样，现场读取了一次）")
+        }
+        // 执行完 App 可能马上又被暂停，等这次更新送达再返回
+        await updateTask?.value
+    }
+
+    /// 灵动岛上的「切换」按钮：自动 → 电池 → 网速 → 性能 → 自动
+    func cycleFocus() async {
+        let all = LiveActivityFocus.allCases
+        let index = all.firstIndex(of: focus) ?? 0
+        setFocus(all[(index + 1) % all.count])
+        if latestState?.isLive == true {
+            await updateTask?.value
+        } else {
+            // App 没在采样（比如刚被唤醒），顺便现场读一次，免得切过去看到的是旧数据
+            await refresh()
+        }
+    }
+
     /// App 每次采样后调用（每秒一次，和悬浮窗同一份数据）
     func engineDidSample(_ snapshot: MetricsSnapshot) {
         let state = StatusActivityAttributes.ContentState(snapshot: snapshot, focus: focus, isLive: true)
