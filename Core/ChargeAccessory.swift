@@ -253,12 +253,14 @@ struct AccessoryComparison: Equatable {
         return sorted.count % 2 == 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]
     }
 
-    private static func covers(_ entries: [Int: (time: Date, segment: Int)], low: Int, high: Int) -> Bool {
+    /// 这次充电在同一段连续数据里，先后涨到了 low 和 high
+    static func covers(_ entries: [Int: (time: Date, segment: Int)], low: Int, high: Int) -> Bool {
         guard let start = entries[low], let end = entries[high] else { return false }
         return start.segment == end.segment && end.time > start.time
     }
 
-    private static func run(_ session: ChargeSession, entries: [Int: (time: Date, segment: Int)], range: ClosedRange<Int>) -> RangeRun? {
+    /// 这次充电在 range 区间里的表现；没有完整覆盖时为 nil。「和平时比」（ChargeInsights）也用它
+    static func run(_ session: ChargeSession, entries: [Int: (time: Date, segment: Int)], range: ClosedRange<Int>) -> RangeRun? {
         guard covers(entries, low: range.lowerBound, high: range.upperBound),
               let start = entries[range.lowerBound], let end = entries[range.upperBound] else { return nil }
         let duration = end.time.timeIntervalSince(start.time)

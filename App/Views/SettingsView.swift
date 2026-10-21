@@ -34,22 +34,12 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    NavigationLink {
-                        ChargeHistoryView()
-                    } label: {
-                        Label("充电记录", systemImage: "list.bullet.rectangle")
-                    }
-                    NavigationLink {
-                        AccessoryCompareView()
-                    } label: {
-                        Label("充电器／线材对比", systemImage: "chart.bar.xaxis")
-                    }
                     Toggle("插电时自动打开充电大屏", isOn: $autoOpenChargingScreen)
                     Toggle("新的充电沿用上次的配件组合", isOn: $autoAssignAccessory)
                 } header: {
                     Text("充电")
                 } footer: {
-                    Text("只在 App 开着时生效。充电大屏会让屏幕保持常亮，离开大屏后恢复自动锁屏。\n沿用配件：适合总用同一套充电器的人；换了充电器记得在充电卡片上改一下，否则对比会不准。默认关闭，首页会提供「还是用上次的」一键选择。")
+                    Text("充电记录、充电器对比在「充电」标签页。\n自动打开大屏只在 App 开着时生效，大屏会让屏幕保持常亮，离开后恢复自动锁屏。\n沿用配件：适合总用同一套充电器的人；换了充电器记得在充电页改一下，否则对比会不准。默认关闭，充电时会提供「还是用上次的」一键选择。")
                 }
 
                 Section("设备") {

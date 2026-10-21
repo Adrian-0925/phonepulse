@@ -2,10 +2,10 @@ import SwiftUI
 
 // MARK: - 选择配件组合
 
-/// 给一条充电记录选配件组合：一个菜单，常用的在前，最后是「新建」。首页充电卡片和充电报告共用
+/// 给一条充电记录选配件组合：一个菜单，常用的在前，最后是「新建」。充电页和充电报告共用
 struct AccessoryPicker: View {
     let sessionID: UUID
-    /// 紧凑样式（首页卡片上一行显示）
+    /// 紧凑样式（充电页卡片上一行显示）
     var compact = false
 
     @State private var showsNewAlert = false
@@ -204,7 +204,7 @@ private struct AccessorySessionsView: View {
         List {
             let sessions = store.sessions(for: accessoryID)
             if sessions.isEmpty {
-                Text("还没有关联的充电记录。充电时在首页的充电卡片上选这个组合，或者在充电记录里补选。")
+                Text("还没有关联的充电记录。充电时在「充电」页选上这个组合，或者在充电记录里补选。")
                     .foregroundStyle(.secondary)
             }
             ForEach(sessions) { session in
@@ -384,7 +384,7 @@ private struct VerdictView: View {
         let needed = AccessoryComparison.conclusiveRuns
         switch comparison.verdict {
         case let .insufficient(.noRecords(id)):
-            return "「\(id == comparison.a.accessoryID ? nameA : nameB)」还没有关联的充电记录。下次用它充电时，在首页充电卡片上选上它。"
+            return "「\(id == comparison.a.accessoryID ? nameA : nameB)」还没有关联的充电记录。下次用它充电时，在「充电」页选上它。"
         case .insufficient(.noCommonRange):
             return "两组记录没有重合的电量区间（至少要连续覆盖 10 个百分点，中间 App 不能断开）。试着从相近的电量开始充，并让 App 开着或打开悬浮窗。"
         case .preliminary:

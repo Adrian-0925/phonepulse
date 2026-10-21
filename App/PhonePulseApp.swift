@@ -40,17 +40,40 @@ struct PhonePulseApp: App {
     }
 }
 
+private enum AppTab: Hashable {
+    case status, charging, settings
+}
+
 struct RootView: View {
+    @Environment(MetricsEngine.self) private var engine
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("autoOpenChargingScreen") private var autoOpenChargingScreen = false
+    @State private var tab: AppTab = .status
+    @State private var showsChargingScreen = false
 
     var body: some View {
-        TabView {
-            DashboardView()
+        TabView(selection: $tab) {
+            DashboardView(onOpenChargingScreen: { showsChargingScreen = true },
+                          onOpenChargingTab: { tab = .charging })
                 .tabItem { Label("状态", systemImage: "gauge.with.dots.needle.67percent") }
-            SpeedTestView()
-                .tabItem { Label("测速", systemImage: "speedometer") }
+                .tag(AppTab.status)
+            ChargingTabView(onOpenScreen: { showsChargingScreen = true })
+                .tabItem { Label("充电", systemImage: "bolt.fill") }
+                .tag(AppTab.charging)
             SettingsView()
                 .tabItem { Label("设置", systemImage: "gearshape") }
+                .tag(AppTab.settings)
+        }
+        // 充电大屏放在最外层：首页和充电页都能打开，「插电时自动打开」也不受当前在哪个标签影响
+        .fullScreenCover(isPresented: $showsChargingScreen) {
+            ChargingScreenView()
+                .environment(engine)
+        }
+        // 设置里打开了「插电时自动打开充电大屏」：App 开着时看到插电就进入
+        .onChange(of: ChargeSessionStore.shared.current?.id) { _, newID in
+            guard autoOpenChargingScreen, hasCompletedOnboarding, newID != nil,
+                  ChargeSessionStore.shared.current?.startObserved == true else { return }
+            showsChargingScreen = true
         }
         // 第一次打开时引导添加小组件和开启灵动岛
         .fullScreenCover(isPresented: Binding(get: { !hasCompletedOnboarding }, set: { hasCompletedOnboarding = !$0 })) {

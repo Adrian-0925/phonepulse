@@ -1,11 +1,17 @@
 import SwiftUI
 
+/// 首页只放「现在」：实时数据、悬浮窗、灵动岛。充电的记录、习惯和对比在「充电」标签页。
 struct DashboardView: View {
     @Environment(MetricsEngine.self) private var engine
-    @AppStorage("autoOpenChargingScreen") private var autoOpenChargingScreen = false
-    @State private var showsChargingScreen = false
+    private let onOpenChargingScreen: () -> Void
+    private let onOpenChargingTab: () -> Void
 
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+
+    init(onOpenChargingScreen: @escaping () -> Void, onOpenChargingTab: @escaping () -> Void) {
+        self.onOpenChargingScreen = onOpenChargingScreen
+        self.onOpenChargingTab = onOpenChargingTab
+    }
 
     var body: some View {
         NavigationStack {
@@ -13,11 +19,10 @@ struct DashboardView: View {
                 if let snapshot = engine.snapshot {
                     VStack(spacing: 12) {
                         if snapshot.battery.state.isPluggedIn {
-                            ChargingCard(battery: snapshot.battery) {
-                                showsChargingScreen = true
-                            }
+                            ChargingSummaryCard(battery: snapshot.battery,
+                                                onOpenScreen: onOpenChargingScreen,
+                                                onOpenDetails: onOpenChargingTab)
                         }
-                        LiveActivityCard()
                         NetworkCard(
                             sample: snapshot.network,
                             download: engine.downloadHistory,
@@ -35,6 +40,7 @@ struct DashboardView: View {
                             .buttonStyle(.plain)
                             StorageCard(sample: snapshot.storage)
                         }
+                        LiveActivityCard()
                         DeviceCard(snapshot: snapshot)
                     }
                     .padding()
@@ -46,23 +52,16 @@ struct DashboardView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("设备状态")
         }
-        .fullScreenCover(isPresented: $showsChargingScreen) {
-            ChargingScreenView()
-                .environment(engine)
-        }
-        // 设置里打开了「插电时自动打开充电大屏」：App 开着时看到插电就进入
-        .onChange(of: ChargeSessionStore.shared.current?.id) { _, newID in
-            guard autoOpenChargingScreen, newID != nil, ChargeSessionStore.shared.current?.startObserved == true else { return }
-            showsChargingScreen = true
-        }
     }
 }
 
 // MARK: - 充电
 
-private struct ChargingCard: View {
+/// 插电时首页顶部的简要卡片；详细的曲线、配件和报告在「充电」标签页
+private struct ChargingSummaryCard: View {
     let battery: BatterySample
     let onOpenScreen: () -> Void
+    let onOpenDetails: () -> Void
 
     private var store: ChargeSessionStore { .shared }
 
@@ -96,12 +95,9 @@ private struct ChargingCard: View {
                 ChargeCurveChart(samples: session.samples, tint: Theme.storage, showsAxes: false)
                     .frame(height: 56)
             }
+            // 还没选配件时，一键沿用上次的组合（选别的、新建去充电页）
             if let session = store.current {
-                HStack(spacing: 8) {
-                    AccessoryPicker(sessionID: session.id, compact: true)
-                    Spacer(minLength: 0)
-                    LastAccessorySuggestion(sessionID: session.id)
-                }
+                LastAccessorySuggestion(sessionID: session.id)
             }
             HStack(spacing: 10) {
                 Button(action: onOpenScreen) {
@@ -111,10 +107,8 @@ private struct ChargingCard: View {
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.charging)
                 .foregroundStyle(.black)
-                NavigationLink {
-                    ChargeHistoryView()
-                } label: {
-                    Label("充电记录", systemImage: "list.bullet.rectangle")
+                Button(action: onOpenDetails) {
+                    Label("充电详情", systemImage: "chart.xyaxis.line")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -200,7 +194,7 @@ private struct LiveActivityCard: View {
         if let errorMessage { return errorMessage }
         if !service.areActivitiesEnabled { return "实时活动已被关闭：请到 设置 → PhonePulse → 实时活动 打开" }
         if DeviceCatalog.current?.hasDynamicIsland == false { return "你的机型没有灵动岛，会显示在锁屏上" }
-        return "自动：插电时显示电量和充电，否则显示网速。App 在前台或悬浮窗开着时实时刷新，其他时候显示最后一次的数据。"
+        return "自动：插电时显示充电，平时显示网速。"
     }
 }
 
@@ -234,8 +228,8 @@ private struct FloatingWindowCard: View {
             }
             .tint(.indigo)
             Text(floating.showsOutsideApp
-                 ? "回到桌面或切到其他 App 时继续显示。App 因此能在后台运行，灵动岛也会保持实时。不想挡住画面，可以把悬浮窗拖到屏幕边缘收起。"
-                 : "离开 App 时悬浮窗会收起。App 随后会被系统暂停，灵动岛停在最后一次的数据（显示「已暂停」，充满倒计时仍会走）。")
+                 ? "回到桌面、切到其他 App 都继续显示，灵动岛也保持实时。不想挡画面，可以拖到屏幕边缘收起。"
+                 : "离开 App 时收起悬浮窗，灵动岛会停在最后一次的数据。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -246,7 +240,7 @@ private struct FloatingWindowCard: View {
         if let error = floating.errorMessage { return error }
         if !floating.isSupported { return "此设备不支持画中画" }
         if floating.isActive { return "悬浮窗已开启，切到其他 App 也能看到网速" }
-        return floating.isPossible ? "开启后切到其他 App，网速会一直悬浮显示（原型）" : "正在准备画中画…"
+        return floating.isPossible ? "开启后切到其他 App，网速会一直悬浮显示" : "正在准备画中画…"
     }
 }
 

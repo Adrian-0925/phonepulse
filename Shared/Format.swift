@@ -32,10 +32,6 @@ enum Format {
         return text + units[index]
     }
 
-    static func mbps(_ value: Double) -> String {
-        "\(String(format: value >= 100 ? "%.0f" : "%.1f", value)) Mbps"
-    }
-
     static func bytes(_ value: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
     }

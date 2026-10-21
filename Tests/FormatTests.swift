@@ -12,11 +12,6 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.speed(2_000_000_000), "2.00 GB/s")
     }
 
-    func testMbps() {
-        XCTAssertEqual(Format.mbps(87.64), "87.6 Mbps")
-        XCTAssertEqual(Format.mbps(250.4), "250 Mbps")
-    }
-
     func testWatts() {
         XCTAssertEqual(Format.watts(12.34), "12.3 W")
     }
