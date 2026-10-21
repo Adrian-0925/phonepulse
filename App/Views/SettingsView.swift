@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @State private var showsGuide = false
     @State private var showsControlGuide = false
+    @State private var showsAutomationGuide = false
     @AppStorage("autoOpenChargingScreen") private var autoOpenChargingScreen = false
     @AppStorage(ChargeSessionStore.autoAssignKey) private var autoAssignAccessory = false
 
@@ -14,6 +15,11 @@ struct SettingsView: View {
                         showsGuide = true
                     } label: {
                         Label("添加小组件和开启灵动岛", systemImage: "questionmark.circle")
+                    }
+                    Button {
+                        showsAutomationGuide = true
+                    } label: {
+                        Label("插电自动记录、开启灵动岛", systemImage: "wand.and.stars")
                     }
                     if ControlCenterTip.isSupported {
                         Button {
@@ -74,6 +80,9 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showsControlGuide) {
                 ControlCenterGuideView()
+            }
+            .sheet(isPresented: $showsAutomationGuide) {
+                ChargerAutomationGuideView()
             }
         }
     }

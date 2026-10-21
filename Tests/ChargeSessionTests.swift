@@ -84,6 +84,81 @@ final class ChargeSessionRecorderTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(recorder.current).samples.count, 2)
     }
 
+    func testAutomationPlugInStartsObservedSession() throws {
+        var recorder = ChargeSessionRecorder()
+        XCTAssertNil(recorder.recordPlugIn(level: 0.30, at: at(0), capacityMAh: 3000))
+        let current = try XCTUnwrap(recorder.current)
+        XCTAssertTrue(current.startObserved)
+        XCTAssertEqual(current.startDate, at(0))
+        XCTAssertEqual(current.samples.count, 1)
+    }
+
+    func testAutomationPlugInWhileRecordingIsIgnored() throws {
+        var recorder = ChargeSessionRecorder()
+        recorder.record(level: 0.40, state: .unplugged, at: at(0), capacityMAh: nil)
+        recorder.record(level: 0.40, state: .charging, at: at(1), capacityMAh: nil)
+        let id = try XCTUnwrap(recorder.current).id
+        XCTAssertNil(recorder.recordPlugIn(level: 0.40, at: at(2), capacityMAh: nil))
+        XCTAssertEqual(try XCTUnwrap(recorder.current).id, id)
+    }
+
+    func testAutomationPlugInEndsStaleSession() throws {
+        var recorder = ChargeSessionRecorder()
+        recorder.record(level: 0.50, state: .charging, at: at(0), capacityMAh: nil)
+        recorder.record(level: 0.60, state: .charging, at: at(600), capacityMAh: nil)
+        // 之后 App 没运行，拔电没被看到；第二天插电时自动化运行
+        let finished = try XCTUnwrap(recorder.recordPlugIn(level: 0.30, at: at(90_000), capacityMAh: nil))
+        XCTAssertEqual(finished.endDate, at(600))
+        XCTAssertFalse(finished.endObserved)
+        let current = try XCTUnwrap(recorder.current)
+        XCTAssertNotEqual(current.id, finished.id)
+        XCTAssertTrue(current.startObserved)
+        XCTAssertEqual(current.samples.first?.level, 0.30)
+    }
+
+    func testAppKeepsRecordingAfterAutomationPlugIn() throws {
+        var recorder = ChargeSessionRecorder()
+        recorder.recordPlugIn(level: 0.50, at: at(0), capacityMAh: nil)
+        let id = try XCTUnwrap(recorder.current).id
+        // App 一小时后才打开，还在充电：接着记录同一次
+        XCTAssertNil(recorder.record(level: 0.80, state: .charging, at: at(3_600), capacityMAh: nil))
+        let current = try XCTUnwrap(recorder.current)
+        XCTAssertEqual(current.id, id)
+        XCTAssertTrue(current.startObserved)
+        XCTAssertEqual(current.samples.count, 2)
+    }
+
+    func testAutomationOnlySessionHasExactStartEndAndAverage() throws {
+        var recorder = ChargeSessionRecorder()
+        recorder.recordPlugIn(level: 0.30, at: at(0), capacityMAh: 3000)
+        let finished = try XCTUnwrap(recorder.recordUnplug(level: 0.90, at: at(7_200)))
+        XCTAssertNil(recorder.current)
+        XCTAssertTrue(finished.startObserved)
+        XCTAssertTrue(finished.endObserved)
+        XCTAssertEqual(finished.endDate, at(7_200))
+        let report = try XCTUnwrap(ChargeAnalyzer.report(for: finished, now: at(99_999)))
+        XCTAssertEqual(report.duration, 7_200, accuracy: 1e-6)
+        // 两小时 +60%：平均每小时 +30%
+        XCTAssertEqual(try XCTUnwrap(report.levelPerHour), 0.30, accuracy: 1e-9)
+        // 中间没有数据
+        XCTAssertLessThan(report.completeness, 0.05)
+    }
+
+    func testAutomationUnplugAfterHiddenReplugEndsAtLastSample() throws {
+        var recorder = ChargeSessionRecorder()
+        recorder.recordPlugIn(level: 0.50, at: at(0), capacityMAh: nil)
+        // 电量反而比插电时低很多：中间拔过电又插上，当时没记录到
+        let finished = try XCTUnwrap(recorder.recordUnplug(level: 0.30, at: at(7_200)))
+        XCTAssertEqual(finished.endDate, at(0))
+        XCTAssertFalse(finished.endObserved)
+    }
+
+    func testAutomationUnplugWithoutSessionDoesNothing() {
+        var recorder = ChargeSessionRecorder()
+        XCTAssertNil(recorder.recordUnplug(level: 0.80, at: at(0)))
+        XCTAssertNil(recorder.current)
+    }
+
     func testRecorderSurvivesJSONRoundTrip() throws {
         var recorder = ChargeSessionRecorder()
         recorder.record(level: 0.30, state: .unplugged, at: at(0), capacityMAh: nil)

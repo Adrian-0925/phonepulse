@@ -3,10 +3,10 @@ import AVKit
 import Observation
 import UIKit
 
-/// 画中画悬浮网速窗（原型）。
+/// 画中画悬浮网速窗。
 ///
 /// 原理：iOS 不允许 App 在别的 App 上面画东西，但允许"画中画播放视频"。
-/// 这里每秒把网速画成一帧视频喂给 AVSampleBufferDisplayLayer，再交给画中画显示。
+/// 这里每秒把网速（或用户在样式里选的其他内容）画成一帧视频喂给 AVSampleBufferDisplayLayer，再交给画中画显示。
 /// 画中画开着时系统会让 App 在后台继续运行，所以能持续采样、刷新画面。
 ///
 /// 前提：Info.plist 声明 UIBackgroundModes = audio（即"音频、AirPlay 和画中画"后台模式），音频会话设为 playback。
@@ -24,6 +24,8 @@ final class FloatingSpeedController: NSObject {
     private(set) var rendererResetCount = 0
     /// 离开 App（回到桌面或切到其他 App，系统不区分这两种情况）时是否显示悬浮窗
     private(set) var showsOutsideApp = UserDefaults.standard.object(forKey: FloatingSpeedController.showsOutsideAppKey) as? Bool ?? true
+    /// 悬浮窗画面里显示什么、用什么配色
+    private(set) var style = FloatingStyle.load()
 
     static let showsOutsideAppKey = "floatingShowsOutsideApp"
 
@@ -33,16 +35,27 @@ final class FloatingSpeedController: NSObject {
     private let engine: MetricsEngine
     @ObservationIgnored private var pipController: AVPictureInPictureController?
     @ObservationIgnored private var possibleObservation: NSKeyValueObservation?
+    /// 最近一次采样，改样式时马上用它重画，不用等下一秒
+    @ObservationIgnored private var lastSnapshot: MetricsSnapshot?
 
     init(engine: MetricsEngine) {
         self.engine = engine
         super.init()
         sourceView.displayLayer.videoGravity = .resizeAspect
-        render(download: 0, upload: 0)
+        render(nil)
         engine.onTick = { [weak self] snapshot in
-            self?.render(download: snapshot.network.downloadBytesPerSecond, upload: snapshot.network.uploadBytesPerSecond)
+            self?.render(snapshot)
         }
         setUpPictureInPicture()
+    }
+
+    /// 改样式：保存并立即重画（悬浮窗开着时也马上生效）
+    func setStyle(_ newStyle: FloatingStyle) {
+        guard newStyle != style else { return }
+        style = newStyle
+        newStyle.save()
+        render(lastSnapshot)
+        EventLog.shared.add("悬浮窗样式：\(newStyle.summary)")
     }
 
     /// 画中画要求音频会话为 playback；mixWithOthers 保证不会打断用户正在听的音乐。
@@ -110,8 +123,11 @@ final class FloatingSpeedController: NSObject {
         pipController = controller
     }
 
-    private func render(download: Double, upload: Double) {
-        guard let buffer = SpeedFrameRenderer.makeSampleBuffer(download: download, upload: upload) else { return }
+    private func render(_ snapshot: MetricsSnapshot?) {
+        if let snapshot {
+            lastSnapshot = snapshot
+        }
+        guard let buffer = SpeedFrameRenderer.makeSampleBuffer(style: style, snapshot: snapshot ?? lastSnapshot) else { return }
         let renderer = sourceView.displayLayer.sampleBufferRenderer
         // App 切后台等情况会让渲染器进入 failed 状态，需要 flush 才能继续显示
         if renderer.status == .failed {

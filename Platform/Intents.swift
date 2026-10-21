@@ -57,6 +57,59 @@ struct RefreshAllIntent: LiveActivityIntent {
     }
 }
 
+/// 快捷指令自动化「充电器 → 已连接」时运行：记下插电的确切时间和电量，并开启灵动岛（可在动作里关掉）。
+/// App 没开时也能把每次充电的起点记下来；由系统在 App 进程里执行，不用打开 App
+struct ChargerConnectedIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "PhonePulse 已插电"
+    static var description = IntentDescription("放在「充电器已连接」自动化里：记录这次充电的开始，并开启灵动岛显示电量、估算功率和充满倒计时。")
+
+    @Parameter(title: "同时开启灵动岛", default: true)
+    var startsLiveActivity: Bool
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        #if !WIDGET_EXTENSION
+        let battery = BatteryProbe.read()
+        ChargeSessionStore.shared.chargerConnected(
+            level: battery.level,
+            capacityMAh: BatterySettings.current.capacity?.fullChargeMAh,
+            thermal: SystemProbe.thermal)
+        if startsLiveActivity {
+            do {
+                try LiveActivityService.shared.start()
+                await LiveActivityService.shared.refresh()
+            } catch {
+                // 实时活动被关闭等情况：start 里已记录原因，充电照样记录
+            }
+        }
+        #endif
+        return .result()
+    }
+}
+
+/// 快捷指令自动化「充电器 → 已断开」时运行：以这一刻结束这次充电记录，并结束灵动岛（可在动作里关掉）
+struct ChargerDisconnectedIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "PhonePulse 已拔电"
+    static var description = IntentDescription("放在「充电器已断开」自动化里：记录这次充电的结束，并结束灵动岛。")
+
+    @Parameter(title: "同时结束灵动岛", default: true)
+    var endsLiveActivity: Bool
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        #if !WIDGET_EXTENSION
+        ChargeSessionStore.shared.chargerDisconnected(level: BatteryProbe.read().level)
+        if endsLiveActivity {
+            // 不看 isRunning：App 刚被唤醒时它可能还是旧值，stop 本身没开着就什么都不做
+            await LiveActivityService.shared.stop()
+        } else {
+            await LiveActivityService.shared.refresh()
+        }
+        #endif
+        return .result()
+    }
+}
+
 /// 灵动岛和控制中心上的「切换」按钮：自动 → 电池 → 网速 → 性能。灵动岛没开时会先开启
 struct CycleLiveActivityFocusIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "切换 PhonePulse 灵动岛显示内容"

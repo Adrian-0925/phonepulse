@@ -17,6 +17,7 @@ struct ChargingTabView: View {
                 VStack(spacing: 12) {
                     // 读每秒采样的部分单独放一个视图，下面的统计不用跟着每秒重算
                     CurrentChargeSection(onOpenScreen: onOpenScreen)
+                    AutomationTipCard()
                     if let last = store.sessions.first {
                         LastChargeCard(session: last)
                         HabitsCard(sessions: store.sessions)
@@ -281,9 +282,56 @@ private struct LastChargeCard: View {
             tags.append("充电时发热")
         }
         if let completeness = report?.completeness, completeness < 0.8 {
-            tags.append("完整度 \(Format.percent(completeness))")
+            // 只有快捷指令记下的插电、拔电两个点：起止和平均是准的，只是没有过程
+            tags.append(completeness < 0.05 && session.startObserved && session.endObserved
+                        ? "只有起止数据" : "完整度 \(Format.percent(completeness))")
         }
         return tags
+    }
+}
+
+// MARK: - 插电自动记录
+
+/// 还没设置快捷指令自动化时的提示（可以关掉）
+private struct AutomationTipCard: View {
+    @AppStorage("dismissedChargerAutomationTip") private var dismissed = false
+    @State private var showsGuide = false
+
+    private var store: ChargeSessionStore { .shared }
+
+    var body: some View {
+        if store.lastAutomationRun == nil, !dismissed {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "wand.and.stars")
+                    .foregroundStyle(Theme.charging)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("App 没开也能记录每次充电")
+                        .font(.subheadline.weight(.semibold))
+                    Text("在「快捷指令」里设两个自动化，插电、拔电时各运行一次 PhonePulse：充电记录有准确的起止时间，插电还会自动打开灵动岛。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("看看怎么设置") {
+                        showsGuide = true
+                    }
+                    .font(.caption.weight(.semibold))
+                }
+                Spacer(minLength: 0)
+                Button {
+                    dismissed = true
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("不再提示")
+            }
+            .padding(12)
+            .background(Theme.charging.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .sheet(isPresented: $showsGuide) {
+                ChargerAutomationGuideView()
+            }
+        }
     }
 }
 
@@ -409,6 +457,8 @@ private struct ChargingEmptyCard: View {
 // MARK: - 记录与对比
 
 private struct RecordsCard: View {
+    @State private var showsAutomationGuide = false
+
     private var store: ChargeSessionStore { .shared }
 
     var body: some View {
@@ -417,6 +467,12 @@ private struct RecordsCard: View {
                 ChargeHistoryView()
             } label: {
                 LinkRow(icon: "list.bullet.rectangle", title: "充电记录", value: "\(store.sessions.count) 条")
+            }
+            Divider()
+            Button {
+                showsAutomationGuide = true
+            } label: {
+                LinkRow(icon: "wand.and.stars", title: "插电自动记录", detail: automationStatus)
             }
             Divider()
             NavigationLink {
@@ -432,6 +488,14 @@ private struct RecordsCard: View {
             }
         }
         .buttonStyle(.plain)
+        .sheet(isPresented: $showsAutomationGuide) {
+            ChargerAutomationGuideView()
+        }
+    }
+
+    private var automationStatus: String {
+        guard let date = store.lastAutomationRun else { return "未设置：用快捷指令让 App 没开时也记下每次充电" }
+        return "已生效 · 上次运行 \(Format.ago(Date.now.timeIntervalSince(date)))"
     }
 
     /// 最近用过的两个组合的对比结论，一行说完

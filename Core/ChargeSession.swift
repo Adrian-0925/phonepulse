@@ -106,6 +106,60 @@ struct ChargeSessionRecorder: Codable, Equatable {
         return finished
     }
 
+    /// 快捷指令自动化「充电器已连接」时调用：这一刻确实刚插上电，所以开始时间是准的（startObserved）。
+    /// App 正在记录这次充电时什么都不做；有一条很久没更新的旧记录（当时没看到拔电）就先结束它，再从这一刻开始新的一次。
+    /// 返回被结束的旧记录
+    @discardableResult
+    mutating func recordPlugIn(level: Double?, at time: Date, capacityMAh: Int?, thermal: ThermalLevel? = nil) -> ChargeSession? {
+        guard let level else { return nil }
+        let continuous = lastTime.map { time.timeIntervalSince($0) <= Self.continuityLimit } ?? false
+        if current != nil, continuous, lastState?.isPluggedIn == true {
+            return nil
+        }
+        var finished: ChargeSession?
+        if var session = current {
+            session.endDate = session.samples.last?.time ?? session.startDate
+            session.endObserved = false
+            finished = session
+        }
+        current = ChargeSession(
+            id: UUID(),
+            startDate: time,
+            endDate: nil,
+            startObserved: true,
+            endObserved: false,
+            samples: [ChargeSample(time: time, level: level)],
+            tag: nil,
+            capacityMAh: capacityMAh,
+            peakThermal: thermal)
+        lastState = .charging
+        lastTime = time
+        return finished
+    }
+
+    /// 快捷指令自动化「充电器已断开」时调用：以这一刻结束正在进行的充电（endObserved）。
+    /// 中间 App 没运行，所以只多一个结束点：起止时间和电量是准的，平均速度可信，中间的曲线没有。
+    /// 返回结束的记录；没有正在进行的充电时返回 nil
+    @discardableResult
+    mutating func recordUnplug(level: Double?, at time: Date) -> ChargeSession? {
+        lastState = .unplugged
+        lastTime = time
+        guard var session = current else { return nil }
+        current = nil
+        if let level, let last = session.samples.last, level < last.level - Self.replugDrop {
+            // 电量比上次记录时还低：中间拔过电（当时没记录到），这次充电只能算到最后一个点
+            session.endDate = last.time
+            session.endObserved = false
+        } else {
+            if let level {
+                session.samples.append(ChargeSample(time: time, level: level))
+            }
+            session.endDate = time
+            session.endObserved = true
+        }
+        return session
+    }
+
     private static func hotter(_ a: ThermalLevel?, _ b: ThermalLevel?) -> ThermalLevel? {
         guard let a else { return b }
         guard let b else { return a }

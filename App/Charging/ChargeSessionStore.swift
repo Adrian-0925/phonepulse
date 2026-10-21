@@ -12,6 +12,8 @@ final class ChargeSessionStore {
     static let shared = ChargeSessionStore()
     /// 设置项：新的一次充电自动沿用上次的配件组合
     nonisolated static let autoAssignKey = "autoAssignLastAccessory"
+    /// 快捷指令自动化（插电 / 拔电）最近一次运行的时间
+    nonisolated static let automationRunKey = "lastChargerAutomationRun"
 
     /// 正在进行的充电
     private(set) var current: ChargeSession?
@@ -19,6 +21,8 @@ final class ChargeSessionStore {
     private(set) var sessions: [ChargeSession] = []
     /// 配件组合
     private(set) var book = AccessoryBook()
+    /// 快捷指令自动化最近一次运行的时间；nil 表示还没设置过（充电页据此显示设置提示）
+    private(set) var lastAutomationRun: Date?
 
     @ObservationIgnored private var recorder = ChargeSessionRecorder()
     @ObservationIgnored private var lastSave: Date = .distantPast
@@ -32,7 +36,46 @@ final class ChargeSessionStore {
     }
 
     private init() {
+        lastAutomationRun = UserDefaults.standard.object(forKey: Self.automationRunKey) as? Date
         load()
+    }
+
+    // MARK: - 快捷指令自动化
+
+    /// 「充电器已连接」自动化：记下插电的确切时间和电量。App 只是被系统短暂唤醒，所以马上保存
+    func chargerConnected(level: Double?, capacityMAh: Int?, thermal: ThermalLevel) {
+        let previousID = recorder.current?.id
+        if let finished = recorder.recordPlugIn(level: level, at: .now, capacityMAh: capacityMAh, thermal: thermal) {
+            keep(finished)
+        }
+        if let started = recorder.current, started.id != previousID {
+            EventLog.shared.add("快捷指令：插电，开始记录充电")
+            carryLastAccessory()
+        } else {
+            EventLog.shared.add("快捷指令：插电（这次充电已在记录）")
+        }
+        current = recorder.current
+        markAutomationRun()
+        save()
+    }
+
+    /// 「充电器已断开」自动化：以这一刻结束正在进行的充电
+    func chargerDisconnected(level: Double?) {
+        if let finished = recorder.recordUnplug(level: level, at: .now) {
+            keep(finished)
+            EventLog.shared.add("快捷指令：拔电，充电记录已结束")
+        } else {
+            EventLog.shared.add("快捷指令：拔电（没有正在记录的充电）")
+        }
+        current = recorder.current
+        markAutomationRun()
+        save()
+    }
+
+    private func markAutomationRun() {
+        let now = Date.now
+        lastAutomationRun = now
+        UserDefaults.standard.set(now, forKey: Self.automationRunKey)
     }
 
     /// App 每次采样后调用

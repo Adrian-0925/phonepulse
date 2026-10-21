@@ -202,6 +202,7 @@ private struct LiveActivityCard: View {
 
 private struct FloatingWindowCard: View {
     @Environment(FloatingSpeedController.self) private var floating
+    @State private var showsStyle = false
 
     var body: some View {
         MetricCard(title: "悬浮网速窗", systemImage: "pip", tint: .indigo) {
@@ -222,6 +223,16 @@ private struct FloatingWindowCard: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Divider()
+            // 样式就在这张卡片里改：上面的预览就是悬浮窗的画面，改了马上能看到（换页面的话预览会离开屏幕）
+            DisclosureGroup(isExpanded: $showsStyle) {
+                FloatingStyleOptions()
+                    .padding(.top, 6)
+            } label: {
+                LabeledContent("样式", value: floating.style.summary)
+                    .font(.subheadline)
+            }
+            .tint(.indigo)
+            Divider()
             Toggle(isOn: Binding(get: { floating.showsOutsideApp }, set: { floating.setShowsOutsideApp($0) })) {
                 Text("离开 App 时显示悬浮窗")
                     .font(.subheadline)
@@ -241,6 +252,65 @@ private struct FloatingWindowCard: View {
         if !floating.isSupported { return "此设备不支持画中画" }
         if floating.isActive { return "悬浮窗已开启，切到其他 App 也能看到网速" }
         return floating.isPossible ? "开启后切到其他 App，网速会一直悬浮显示" : "正在准备画中画…"
+    }
+}
+
+/// 悬浮窗显示内容和配色
+private struct FloatingStyleOptions: View {
+    @Environment(FloatingSpeedController.self) private var floating
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("第一行")
+                    .font(.subheadline)
+                Spacer()
+                Picker("第一行", selection: binding(\.firstLine)) {
+                    ForEach(FloatingStyle.firstLineItems) { item in
+                        Text(item.label).tag(item)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            HStack {
+                Text("第二行")
+                    .font(.subheadline)
+                Spacer()
+                Picker("第二行", selection: binding(\.secondLine)) {
+                    ForEach(FloatingStyle.secondLineItems) { item in
+                        Text(item.label).tag(item)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            Picker("配色", selection: binding(\.palette)) {
+                ForEach(FloatingStyle.Palette.allCases) { palette in
+                    Text(palette.label).tag(palette)
+                }
+            }
+            .pickerStyle(.segmented)
+            HStack {
+                Text("第二行选「不显示」时只有一行，字更大。悬浮窗的大小由系统控制，双指捏合可以缩放。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Button("恢复默认") {
+                    floating.setStyle(.standard)
+                }
+                .font(.caption.weight(.semibold))
+                .disabled(floating.style == .standard)
+            }
+        }
+    }
+
+    private func binding<Value>(_ keyPath: WritableKeyPath<FloatingStyle, Value>) -> Binding<Value> {
+        Binding(
+            get: { floating.style[keyPath: keyPath] },
+            set: { value in
+                var style = floating.style
+                style[keyPath: keyPath] = value
+                floating.setStyle(style)
+            })
     }
 }
 
